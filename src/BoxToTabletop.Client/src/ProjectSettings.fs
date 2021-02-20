@@ -11,12 +11,10 @@ module ProjectSettings =
 
     type Model = {
         Name : string
-        //ModelCountCategories : Types.ModelCountCategory list
         ColumnSettings : ColumnSettings
     } with
         static member Init() = {
             Name = ""
-            //ModelCountCategories = Types.stubCategories()
             ColumnSettings = ColumnSettings.Empty()
         }
 
@@ -25,7 +23,6 @@ module ProjectSettings =
     | Noop
     | CoreUpdate of update : BoxToTabletop.Client.Core.Updates
     | UpdateName of name : string
-    //| ToggleMCCVisibility of mcc : Types.ModelCountCategory
     | UpdatedColumnSettings of ColumnSettings
 
     module View =
@@ -50,8 +47,6 @@ module ProjectSettings =
             [
                 for col in model.ColumnSettings.EnumerateWithTransformer() ->
                     checkBoxFor col.Name col.Value (fun ev -> col.Func ev.Checked |> UpdatedColumnSettings |> dispatch)
-//                for mcc in model.ModelCountCategories ->
-//                    checkBoxFor mcc.Name mcc.Enabled (fun ev -> { mcc with Enabled = not mcc.Enabled } |> ToggleMCCVisibility |> dispatch)
             ]
 
         let view (model : Model) dispatch =
@@ -68,8 +63,6 @@ module ProjectSettings =
         | Core.ColumnSettingsChange _ ->
             // this component is the one that updates this setting; we don't need to handle it.
             model, Noop
-//        | Core.MCCVisibilityChange mcc ->
-//            model, Noop
 
     let update (model : Model) (msg : Msg) =
         match msg with
@@ -79,13 +72,3 @@ module ProjectSettings =
         | UpdateName name -> {model with Name = name}, Noop
         | UpdatedColumnSettings settings ->
             { model with ColumnSettings = settings }, Core.ColumnSettingsChange settings |> CoreUpdate
-//        | ToggleMCCVisibility mcc ->
-//            let existing = Types.getModelCountCategoryByName mcc.Name model.ModelCountCategories
-//            match existing with
-//            | Some e ->
-//                let newMccs = Types.replaceModelCountCategory mcc model.ModelCountCategories
-//                { model with ModelCountCategories = newMccs }, Core.MCCVisibilityChange mcc |> CoreUpdate
-//            | None ->
-//                // todo: is this oging to cause consistent behavior, if triggered?
-//                { model with ModelCountCategories = ( mcc :: model.ModelCountCategories ) }, Core.MCCVisibilityChange mcc |> CoreUpdate
-

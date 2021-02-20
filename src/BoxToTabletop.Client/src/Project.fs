@@ -25,7 +25,6 @@ module Project =
         PrimedCount : int
         PaintedCount : int
         BasedCount : int
-        //PartialCounts : Types.ModelCount list
         ShowError : bool
     } with
         static member Init() = {
@@ -35,7 +34,6 @@ module Project =
             PrimedCount = 0
             PaintedCount = 0
             BasedCount = 0
-            //PartialCounts = []
             ShowError = false
         }
 
@@ -46,14 +44,12 @@ module Project =
         Project : Types.Project
         PartialData : PartialData
         ColumnSettings : ColumnSettings
-        //Columns : Types.ModelCountCategory list
     } with
         static member Init() = {
             Project = {
                 Project.Empty() with Units = mockUnits
             }
             PartialData = PartialData.Init()
-            //Columns = []
             ColumnSettings = ColumnSettings.Empty()
         }
 
@@ -76,7 +72,6 @@ module Project =
     | UpdateUnitName of newName : string
     | UpdateUnitModelCount of newCount : int
     | UpdatePartialData of newPartial : PartialData
-//    | UpdateUnitCountCategoryValue of category : Types.ModelCountCategory * newValue : int
     | AddUnit
     | DeleteRow of id : Guid option
 
@@ -170,11 +165,6 @@ module Project =
         match update with
         | Core.ColumnSettingsChange cs ->
             { model with ColumnSettings = cs }, Noop
-//        | Core.MCCVisibilityChange mcc ->
-//            printfn "Hnadling visibility update"
-//            let removed = model.Columns |> List.filter (fun x -> Helpers.stringsEqualCI mcc.Name x.Name)
-//            { model with Columns = (mcc :: removed) }, Noop
-
 
 
     let update (model : Model) (msg : Msg) : (Model * Msg) =
@@ -189,19 +179,6 @@ module Project =
             { model with PartialData = { model.PartialData with ModelCount = newCount } }, Noop
         | UpdatePartialData newPartial ->
             { model with PartialData = newPartial }, Noop
-//        | UpdateUnitCountCategoryValue (mcc, newValue) ->
-//            let existing = model.PartialData.PartialCounts |> List.tryFind (fun x -> Helpers.stringsEqualCI mcc.Name x.Category.Name)
-//            match existing with
-//            | Some e ->
-//                    let newMC = { e with Count = newValue }
-//                    let filteredMccs = model.PartialData.PartialCounts |> List.filter(fun x -> not (Helpers.stringsEqualCI mcc.Name x.Category.Name))
-//                    let newPartial = { model.PartialData with PartialCounts = (newMC :: filteredMccs) }
-//                    {model with PartialData = newPartial}, Noop
-//            | None ->
-//                    let newMC = { Types.ModelCount.Empty() with Count = newValue; Category = mcc }
-//                    let filteredMccs = model.PartialData.PartialCounts |> List.filter(fun x -> not (Helpers.stringsEqualCI mcc.Name x.Category.Name))
-//                    let newPartial = { model.PartialData with PartialCounts = (newMC :: filteredMccs) }
-//                    {model with PartialData = newPartial}, Noop
         | AddUnit ->
             let p = model.PartialData
             if p.IsValid() then

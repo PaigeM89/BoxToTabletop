@@ -5,54 +5,6 @@ open BoxToTabletop.Domain.Helpers
 
 module Types =
 
-    type ModelCountCategory = {
-        Id : Guid
-        Name : string
-        //todo: consider pulling this out and tupling at a higher level
-        //the object relationship seems weird here
-        Enabled : bool
-    } with
-        static member Empty() = {
-            Id = Guid.NewGuid()
-            Name = ""
-            Enabled = false
-        }
-
-    type ModelCount = {
-        Id : Guid
-        Category : ModelCountCategory
-        Count : int
-    } with
-        static member Empty() = {
-            Id = Guid.NewGuid()
-            Category = ModelCountCategory.Empty()
-            Count = 0
-        }
-
-    let getCountColumn (cat : ModelCountCategory) (counts : ModelCount list) =
-        counts |> List.tryFind (fun x -> String.stringsEqualCI x.Category.Name cat.Name)
-
-    let getModelCountCategoryByName (name : string) (mccs : ModelCountCategory list) =
-        mccs |> List.tryFind (fun x -> String.stringsEqualCI x.Name name)
-
-    let replaceModelCountCategory (newCat : ModelCountCategory) (mccs : ModelCountCategory list) =
-        let newList =
-            mccs
-            |> List.filter (fun x -> not (String.stringsEqualCI x.Name newCat.Name))
-        newCat :: newList
-
-    let createCountCategory name =
-        { ModelCount.Empty() with Category = { ModelCountCategory.Empty() with Name = name } }
-
-    let stubModelCounts() = [
-        createCountCategory "Assembled"
-        createCountCategory "Primed"
-        createCountCategory "Painted"
-        createCountCategory "Based"
-    ]
-
-    let stubCategories() = stubModelCounts() |> List.map (fun x -> x.Category)
-
     type Unit = {
         Id : Guid
         Name : string
@@ -61,8 +13,6 @@ module Types =
         /// This is such a fundamental measurement of what we're doing that it's not going to be a category
         /// </remarks>
         Models : int
-        //ModelCounts : ModelCount list
-
         Assembled : int
         Primed : int
         Painted : int
@@ -73,7 +23,6 @@ module Types =
             Id = Guid.NewGuid()
             Name = ""
             Models = 0
-            //ModelCounts = stubModelCounts()
             Assembled = 0
             Primed = 0
             Painted = 0
@@ -124,7 +73,6 @@ module Types =
         Name : string
         Category : ProjectCategory option
         ColumnSettings : ColumnSettings
-//        CountCategories : ModelCountCategory list
         Units : Unit list
         IsPublic : bool
     } with
@@ -133,7 +81,6 @@ module Types =
             Name = ""
             Category = None
             ColumnSettings = ColumnSettings.Empty()
-            //CountCategories = stubCategories()
             Units = []
             IsPublic = true
         }

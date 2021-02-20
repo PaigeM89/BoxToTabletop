@@ -29,7 +29,6 @@ type Msg =
 | Core of Core.Updates
 | ProjectMsg of Project.Msg
 | ProjectSettingsMsg of ProjectSettings.Msg
-//| MCCVisibilityChanged of mcc : ModelCountCategory
 
 let view (model : Model) (dispatch : Msg -> unit)  =
     let projectSettingsView state =
@@ -63,11 +62,6 @@ let projectMsgToCmd msg =
 let settingsMsgToCmd msg =
     printfn "settings to cmd"
     match msg with
-//    | ProjectSettings.UpdatedColumnSettings cs ->
-//        Cmd.ofMsg (Core (Updates.ColumnSettingsChange cs))
-//    | ProjectSettings.ToggleMCCVisibility mcc ->
-//        printfn "creating cmd of msg"
-//        Cmd.ofMsg (Core (Updates.MCCVisibilityChange mcc))
     | ProjectSettings.CoreUpdate msg -> Cmd.ofMsg (Core msg)
     | _ ->
         printfn "none lol"
@@ -112,8 +106,6 @@ let elmishUpdate (msg : Msg) (model : Model) : (Model * Cmd<Msg>)=
         | ProjectSettings.Noop, p -> Active state, projectMsgToCmd p
         | p, Project.Noop -> Active state, settingsMsgToCmd p
         | p1, p2 -> Active state, [ projectMsgToCmd p2; settingsMsgToCmd p1 ] |> Cmd.batch
-
-
 
 
 
