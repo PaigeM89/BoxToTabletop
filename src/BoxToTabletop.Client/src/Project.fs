@@ -20,13 +20,13 @@ module Project =
     type PartialData = {
         UnitName : string
         ModelCount : int
-        AssembledCount : int
+        PartialCounts : Types.ModelCount list
         ShowError : bool
     } with
         static member Init() = {
             UnitName = ""
             ModelCount = 0
-            AssembledCount = 0
+            PartialCounts = []
             ShowError = false
         }
 
@@ -36,15 +36,14 @@ module Project =
     type Model = {
         Project : Types.Project
         PartialData : PartialData
-        ColumnSettings : Types.ColumnSettings
-        //ShouldClear : bool
+        Columns : Types.ModelCountCategory list
     } with
         static member Init() = {
             Project = {
                 Project.Empty() with Units = mockUnits
             }
             PartialData = PartialData.Init()
-            ColumnSettings = Types.ColumnSettings.Empty()
+            Columns = []
         }
 
     module Model =
@@ -52,7 +51,6 @@ module Project =
             { model with
                 PartialData = PartialData.Init()
                 Project = { model.Project with Units = unit :: model.Project.Units }
-                //ShouldClear = true
             }
 
         let markShowErrors flag model =
@@ -65,10 +63,9 @@ module Project =
     | None
     | UpdateUnitName of newName : string
     | UpdateUnitModelCount of newCount : int
-    | UpdateAssembledCount of newCount : int
+    | UpdateUnitCountCategoryValue of category : Types.ModelCountCategory * newValue : int
     | AddUnit
     | DeleteRow of id : Guid option
-    | UpdatedColumnSettings of cs : Types.ColumnSettings
 
     module View =
         open Fable.React
@@ -78,20 +75,33 @@ module Project =
         //https://github.com/fable-compiler/fable-react/blob/master/src/Fable.React.Standard.fs
         open Fable.React.Standard
 
-        let unitRow (cs : ColumnSettings) (unit : Unit) dispatch =
+        let unitRow (unit : Unit) dispatch =
+            let categoryValues =
+                [
+                    for count in unit.ModelCounts ->
+                        if count.Category.Enabled then td [] [ str count.Category.Name ] |> Some else Option.None
+                ] |> List.choose id
             tr [] [
                 td [] [ str unit.Name ]
                 td [] [ str (string unit.Models) ]
-                if cs.ShowAssembled then td [] [ str (string unit.Assembled) ]
+                //if cs.ShowAssembled then td [] [ str (string unit.Assembled) ]
+                yield! categoryValues
                 td [] [ Delete.delete [ Delete.Size IsMedium; Delete.OnClick (fun _ -> unit.Id |> Some |> DeleteRow |> dispatch ) ] [ ] ]
             ]
 
         let view (model : Model) (dispatch : Msg -> unit) =
+            let categoryHeaders =
+                [
+                    for cat in model.Columns ->
+                        if cat.Enabled then td [] [ str cat.Name ] |> Some else Option.None
+                ] |> List.choose id
             let tableHeaders =
                 tr [ Class "table" ] [
                     th [] [ str "Name" ]
                     th [] [ str "Models" ]
-                    if model.ColumnSettings.ShowAssembled then th [] [ str "Assembled" ]
+                    //if model.ColumnSettings.ShowAssembled then th [] [ str "Assembled" ]
+                    yield! categoryHeaders
+                    // add a blank header for the add/delete button column
                     th [] []
                 ]
             let addRow =
@@ -108,7 +118,7 @@ module Project =
                     ]
                 let numericInput name dv action =
                     Notification.notification [ notifications ] [
-                        input [ Id name ; Type "number"; DefaultValue dv; OnChange (fun ev -> ev.Value |> Helpers.parseIntOrZero |> action |> dispatch) ]
+                        input [ Id name ; Type "number"; DefaultValue dv; OnChange (action) ] //(fun ev -> ev.Value |> Helpers.parseIntOrZero |> action |> dispatch) ]
                     ]
 
                 let mods : Modifier.IModifier list =
@@ -118,17 +128,34 @@ module Project =
                 // todo: make this not ugly
                 let deleteButton = button [ OnClick (fun _ -> Msg.AddUnit |> dispatch )] [ str "Add" ]
 
+                let countColumns =
+                    [
+                        for col in model.Columns ->
+                            if col.Enabled then
+                                let maybeCount = Types.getCountColumn col model.PartialData.PartialCounts
+                                                 |> Option.map (fun o -> o.Count)
+                                let count = Option.defaultValue 0 maybeCount
+                                let func (ev : Browser.Types.Event) : unit =
+                                        let count = Helpers.parseIntOrZero ev.Value
+                                        UpdateUnitCountCategoryValue (col, count)
+                                        |> dispatch
+                                numericInput col.Name count func |> Some //(fun ev -> UpdateUnitCountCategoryValue (col, (Helpers.parseIntOrZero ev.Value) ) |> dispatch )
+                            else
+                                Option.None
+                    ] |> List.choose id
+
                 tr [] [
                     td [] [ nameInput ]
                     td [] [ modelCountInput ]
-                    if model.ColumnSettings.ShowAssembled then td [] [ numericInput "assembled" model.PartialData.AssembledCount UpdateAssembledCount ]
+                    //if model.ColumnSettings.ShowAssembled then td [] [ numericInput "assembled" model.PartialData.AssembledCount UpdateAssembledCount ]
+                    yield! countColumns
                     td [] [ deleteButton ]
                 ]
             let table =
                 Table.table [ Table.IsBordered; Table.IsStriped ] [
                     yield tableHeaders
                     yield addRow
-                    for unit in model.Project.Units do yield unitRow model.ColumnSettings unit dispatch
+                    for unit in model.Project.Units do yield unitRow unit dispatch
                 ]
             table
 
@@ -139,8 +166,8 @@ module Project =
             { model with PartialData = { model.PartialData with UnitName = newName } }, None
         | UpdateUnitModelCount newCount ->
             { model with PartialData = { model.PartialData with ModelCount = newCount } }, None
-        | UpdateAssembledCount newCount ->
-            { model with PartialData = { model.PartialData with AssembledCount = newCount } }, None
+//        | UpdateAssembledCount newCount ->
+//            { model with PartialData = { model.PartialData with AssembledCount = newCount } }, None
         | AddUnit ->
             let p = model.PartialData
             if p.IsValid() then
@@ -153,6 +180,6 @@ module Project =
         | DeleteRow (Option.None) ->
                 printfn "Unable to delete row without ID"
                 model, None
-        | UpdatedColumnSettings cs ->
-                { model with ColumnSettings = cs }, None
+//        | UpdatedColumnSettings cs ->
+//                { model with ColumnSettings = cs }, None
 

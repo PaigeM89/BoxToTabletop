@@ -4,6 +4,7 @@
     <TargetFramework>netstandard2.1</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../Shared/Helpers.fs" />
     <Compile Include="../../Shared/Types.fs" />
     <Compile Include="ProjectSettings.fs" />
     <Compile Include="Project.fs" />
