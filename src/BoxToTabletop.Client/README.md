@@ -2,6 +2,8 @@
 
 This is a small Fable app project so you can easily get started and add your own code easily in it.
 
+old `npm-run-start` value: `dotnet fable watch src --run webpack-dev-server`
+
 ## Requirements
 
 * [dotnet SDK](https://www.microsoft.com/net/download/core) 3.0 or higher

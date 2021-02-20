@@ -1,15 +1,22 @@
 <!doctype html>
 <html>
 <head>
-  <title>Fable</title>
+  <title>Box to Tabletop</title>
   <meta http-equiv='Content-Type' content='text/html; charset=utf-8'>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.6.1/css/bulma.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" />
   <link rel="shortcut icon" href="fable.ico" />
 </head>
 <body>
     <p>Fable is running</p>
-    <p>You can click on this button:</p>
-    <button class="my-button">Click me</button>
+    <!-- <p>You can click on this button:</p>
+    <button class="my-button">Click me</button> -->
+    <input type="checkbox" id="testcb" name="testcb" value="what?">
+    <label for="testcb">what goes ehre</label>
+    <div id="test"></div>
+    <div id="elmish-app"></div>
+    <div id="root" class="container" ></div>
     <script src="bundle.js"></script>
 </body>
 </html>

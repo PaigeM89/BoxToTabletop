@@ -9,6 +9,22 @@ nuget Microsoft.NET.Test.Sdk 16.8.0
 nuget altcover ~> 7
 nuget Packaging.Targets 0.1.189
 
+nuget Thoth.Json ~> 5.1
+nuget Fable.Core ~> 3
+nuget Fable.Browser.Dom ~> 2
+nuget Fable.Fetch
+
+nuget Fable.Elmish
+nuget Fable.Elmish.React
+
+nuget FSharp.Control.AsyncRx ~> 1.6
+nuget Fable.Reaction ~> 3.5
+nuget Fable.React
+#nuget Feliz
+#nuget Feliz.Bulma
+
+nuget Fulma
+
 // [ FAKE GROUP ]
 group Build
     storage: none
@@ -29,7 +45,7 @@ group Build
     nuget Fake.BuildServer.Travis 5.20.4-alpha.1642
     nuget Fantomas
 
-group Analyzers
-  source https://www.nuget.org/api/v2
-  source https://api.nuget.org/v3/index.json
-  nuget BinaryDefense.FSharp.Analyzers.Hashing 0.2.1
+#group Analyzers
+  #source https://www.nuget.org/api/v2
+  #source https://api.nuget.org/v3/index.json
+  #nuget BinaryDefense.FSharp.Analyzers.Hashing 0.2.1
