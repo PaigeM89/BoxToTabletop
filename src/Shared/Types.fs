@@ -1,6 +1,7 @@
 namespace BoxToTabletop.Domain
 
 open System
+open BoxToTabletop.Domain.Helpers
 
 module Types =
 
@@ -29,15 +30,15 @@ module Types =
         }
 
     let getCountColumn (cat : ModelCountCategory) (counts : ModelCount list) =
-        counts |> List.tryFind (fun x -> Helpers.stringsEqualCI x.Category.Name cat.Name)
+        counts |> List.tryFind (fun x -> String.stringsEqualCI x.Category.Name cat.Name)
 
     let getModelCountCategoryByName (name : string) (mccs : ModelCountCategory list) =
-        mccs |> List.tryFind (fun x -> Helpers.stringsEqualCI x.Name name)
+        mccs |> List.tryFind (fun x -> String.stringsEqualCI x.Name name)
 
     let replaceModelCountCategory (newCat : ModelCountCategory) (mccs : ModelCountCategory list) =
         let newList =
             mccs
-            |> List.filter (fun x -> not (Helpers.stringsEqualCI x.Name newCat.Name))
+            |> List.filter (fun x -> not (String.stringsEqualCI x.Name newCat.Name))
         newCat :: newList
 
     let createCountCategory name =
@@ -60,16 +61,26 @@ module Types =
         /// This is such a fundamental measurement of what we're doing that it's not going to be a category
         /// </remarks>
         Models : int
-        ModelCounts : ModelCount list
+        //ModelCounts : ModelCount list
+
+        Assembled : int
+        Primed : int
+        Painted : int
+        Based : int
+
     } with
         static member Empty() = {
             Id = Guid.NewGuid()
             Name = ""
             Models = 0
-            ModelCounts = stubModelCounts()
+            //ModelCounts = stubModelCounts()
+            Assembled = 0
+            Primed = 0
+            Painted = 0
+            Based = 0
         }
 
-    type Category = {
+    type ProjectCategory = {
         Id : Guid
         Name : string
     } with
@@ -78,12 +89,42 @@ module Types =
             Name = ""
         }
 
+    type ColumnSettings = {
+        AssemblyVisible : bool
+        PrimedVisible : bool
+        PaintedVisible : bool
+        BasedVisible : bool
+    } with
+        static member Empty() = {
+            AssemblyVisible = false
+            PrimedVisible = false
+            PaintedVisible = false
+            BasedVisible = false
+        }
+
+        member this.Enumerate() =
+            [
+                yield "Assembled", this.AssemblyVisible
+                yield "Primed", this.PrimedVisible
+                yield "Painted", this.PaintedVisible
+                yield "Based", this.BasedVisible
+
+            ]
+
+        member this.EnumerateWithTransformer() =
+            [
+                yield {| Name = "Assembled"; Value = this.AssemblyVisible; Func = fun newValue -> { this with AssemblyVisible = newValue } |}
+                yield {| Name = "Primed"; Value = this.PrimedVisible; Func = fun newValue -> { this with PrimedVisible = newValue } |}
+                yield {| Name = "Painted"; Value = this.PaintedVisible; Func = fun newValue -> { this with PaintedVisible = newValue } |}
+                yield {| Name = "Based"; Value = this.BasedVisible; Func = fun newValue -> { this with BasedVisible = newValue } |}
+            ]
+
     type Project = {
         Id : Guid
         Name : string
-        Category : Category option
-        //ColumnSettings : ColumnSettings
-        CountCategories : ModelCountCategory list
+        Category : ProjectCategory option
+        ColumnSettings : ColumnSettings
+//        CountCategories : ModelCountCategory list
         Units : Unit list
         IsPublic : bool
     } with
@@ -91,19 +132,17 @@ module Types =
             Id = Guid.NewGuid()
             Name = ""
             Category = None
-            //ColumnSettings = ColumnSettings.Empty()
-            CountCategories = stubCategories()
+            ColumnSettings = ColumnSettings.Empty()
+            //CountCategories = stubCategories()
             Units = []
             IsPublic = true
         }
 
-module Helpers =
-    let parseIntOrZero (s : string) =
-            match System.Int32.TryParse(s) with
-            | true, x -> x
-            | false, _ -> 0
-
-    let tryParseGuid (s : string) =
-            match Guid.TryParse(s) with
-            | true, g -> Some g
-            | false, _ -> None
+    module Unit =
+        let enumerateColumns (cs : ColumnSettings) (unit : Unit) =
+            [
+                if cs.AssemblyVisible then yield ("Assembled", unit.Assembled)
+                if cs.PrimedVisible then yield ("Primed", unit.Primed)
+                if cs.PaintedVisible then yield ("Painted", unit.Painted)
+                if cs.BasedVisible then yield ("Based", unit.Based)
+            ]

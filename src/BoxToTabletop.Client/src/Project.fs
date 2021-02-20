@@ -1,6 +1,7 @@
 namespace BoxToTabletop.Client
 
 open BoxToTabletop.Domain
+open BoxToTabletop.Domain.Helpers
 open BoxToTabletop.Domain.Types
 open Elmish
 open System
@@ -20,13 +21,21 @@ module Project =
     type PartialData = {
         UnitName : string
         ModelCount : int
-        PartialCounts : Types.ModelCount list
+        AssembledCount : int
+        PrimedCount : int
+        PaintedCount : int
+        BasedCount : int
+        //PartialCounts : Types.ModelCount list
         ShowError : bool
     } with
         static member Init() = {
             UnitName = ""
             ModelCount = 0
-            PartialCounts = []
+            AssembledCount = 0
+            PrimedCount = 0
+            PaintedCount = 0
+            BasedCount = 0
+            //PartialCounts = []
             ShowError = false
         }
 
@@ -36,14 +45,16 @@ module Project =
     type Model = {
         Project : Types.Project
         PartialData : PartialData
-        Columns : Types.ModelCountCategory list
+        ColumnSettings : ColumnSettings
+        //Columns : Types.ModelCountCategory list
     } with
         static member Init() = {
             Project = {
                 Project.Empty() with Units = mockUnits
             }
             PartialData = PartialData.Init()
-            Columns = []
+            //Columns = []
+            ColumnSettings = ColumnSettings.Empty()
         }
 
     module Model =
@@ -64,7 +75,8 @@ module Project =
     | CoreUpdate of update : BoxToTabletop.Client.Core.Updates
     | UpdateUnitName of newName : string
     | UpdateUnitModelCount of newCount : int
-    | UpdateUnitCountCategoryValue of category : Types.ModelCountCategory * newValue : int
+    | UpdatePartialData of newPartial : PartialData
+//    | UpdateUnitCountCategoryValue of category : Types.ModelCountCategory * newValue : int
     | AddUnit
     | DeleteRow of id : Guid option
 
@@ -75,31 +87,30 @@ module Project =
         open Fable.React.Props
         //https://github.com/fable-compiler/fable-react/blob/master/src/Fable.React.Standard.fs
 
-        let unitRow (unit : Unit) dispatch =
-            let categoryValues =
-                [
-                    for count in unit.ModelCounts ->
-                        if count.Category.Enabled then td [] [ str count.Category.Name ] |> Some else Option.None
-                ] |> List.choose id
+        let unitRow (cs : ColumnSettings) (unit : Unit) dispatch =
+            let optionalColumns = [
+                for (name, value) in Unit.enumerateColumns cs unit ->
+                    td [] [ str (string value) ]
+            ]
             tr [] [
                 td [] [ str unit.Name ]
                 td [] [ str (string unit.Models) ]
-                yield! categoryValues
+                yield! optionalColumns
                 td [] [ Delete.delete [ Delete.Size IsMedium; Delete.OnClick (fun _ -> unit.Id |> Some |> DeleteRow |> dispatch ) ] [ ] ]
             ]
 
         let view (model : Model) (dispatch : Msg -> unit) =
-            printfn "drawing project. columns are %A" model.Columns
-            let categoryHeaders =
+            printfn "drawing project. columns are %A" model.ColumnSettings
+            let optionalColumns =
                 [
-                    for cat in model.Columns ->
-                        if cat.Enabled then td [] [ str cat.Name ] |> Some else Option.None
+                    for (name, value) in model.ColumnSettings.Enumerate() ->
+                        if value then td [] [ str name ] |> Some else None
                 ] |> List.choose id
             let tableHeaders =
                 tr [ Class "table" ] [
                     th [] [ str "Name" ]
                     th [] [ str "Models" ]
-                    yield! categoryHeaders
+                    yield! optionalColumns
                     // add a blank header for the add/delete button column
                     th [] []
                 ]
@@ -113,56 +124,56 @@ module Project =
 
                 let modelCountInput =
                     Notification.notification [ notifications ] [
-                        input [ Id "modelCount" ; Type "number"; DefaultValue model.PartialData.ModelCount; OnChange (fun ev -> ev.Value |> Helpers.parseIntOrZero |> UpdateUnitModelCount |> dispatch) ]
+                        input [ Id "modelCount" ; Type "number"; DefaultValue model.PartialData.ModelCount; OnChange (fun ev -> ev.Value |> Parsing.parseIntOrZero |> UpdateUnitModelCount |> dispatch) ]
                     ]
+
                 let numericInput name dv action =
                     Notification.notification [ notifications ] [
                         input [ Id name ; Type "number"; DefaultValue dv; OnChange (action) ]
                     ]
 
-                let mods : Modifier.IModifier list =
-                       [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered)]
+//                let mods : Modifier.IModifier list =
+//                       [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered)]
 
                 //let mods' = Modifiers [ mods ]
                 // todo: make this not ugly
                 let deleteButton = button [ OnClick (fun _ -> Msg.AddUnit |> dispatch )] [ str "Add" ]
 
-                let countColumns =
+                let optionalColumns cs (partial : PartialData) =
+                    let func (ev : Browser.Types.Event) transform =
+                        let c = Parsing.parseIntOrZero ev.Value
+                        UpdatePartialData (transform partial c)
+                        |> dispatch
+
                     [
-                        for col in model.Columns ->
-                            if col.Enabled then
-                                let maybeCount = Types.getCountColumn col model.PartialData.PartialCounts
-                                                 |> Option.map (fun o -> o.Count)
-                                let count = Option.defaultValue 0 maybeCount
-                                let func (ev : Browser.Types.Event) : unit =
-                                        let count = Helpers.parseIntOrZero ev.Value
-                                        UpdateUnitCountCategoryValue (col, count)
-                                        |> dispatch
-                                numericInput col.Name count func |> Some
-                            else
-                                Option.None
-                    ] |> List.choose id
+                        if cs.AssemblyVisible then numericInput "Assembled" partial.AssembledCount (fun ev -> func ev (fun p c -> { p with AssembledCount = c }))
+                        if cs.PrimedVisible then numericInput "Primed" partial.PrimedCount (fun ev -> func ev (fun p c -> { p with PrimedCount = c }))
+                        if cs.PaintedVisible then numericInput "Painted" partial.PaintedCount (fun ev -> func ev (fun p c -> { p with PaintedCount = c }))
+                        if cs.BasedVisible then numericInput "Based" partial.BasedCount (fun ev -> func ev (fun p c -> { p with BasedCount = c }))
+                    ]
 
                 tr [] [
                     td [] [ nameInput ]
                     td [] [ modelCountInput ]
-                    yield! countColumns
+                    yield! optionalColumns model.ColumnSettings model.PartialData
                     td [] [ deleteButton ]
                 ]
             let table =
                 Table.table [ Table.IsBordered; Table.IsStriped ] [
                     yield tableHeaders
                     yield addRow
-                    for unit in model.Project.Units do yield unitRow unit dispatch
+                    for unit in model.Project.Units do yield unitRow model.ColumnSettings unit dispatch
                 ]
             table
 
     let handleCoreUpdate (update : Core.Updates) (model : Model) =
         match update with
-        | Core.MCCVisibilityChange mcc ->
-            printfn "Hnadling visibility update"
-            let removed = model.Columns |> List.filter (fun x -> Helpers.stringsEqualCI mcc.Name x.Name)
-            { model with Columns = (mcc :: removed) }, Noop
+        | Core.ColumnSettingsChange cs ->
+            { model with ColumnSettings = cs }, Noop
+//        | Core.MCCVisibilityChange mcc ->
+//            printfn "Hnadling visibility update"
+//            let removed = model.Columns |> List.filter (fun x -> Helpers.stringsEqualCI mcc.Name x.Name)
+//            { model with Columns = (mcc :: removed) }, Noop
 
 
 
@@ -176,19 +187,21 @@ module Project =
             { model with PartialData = { model.PartialData with UnitName = newName } }, Noop
         | UpdateUnitModelCount newCount ->
             { model with PartialData = { model.PartialData with ModelCount = newCount } }, Noop
-        | UpdateUnitCountCategoryValue (mcc, newValue) ->
-            let existing = model.PartialData.PartialCounts |> List.tryFind (fun x -> Helpers.stringsEqualCI mcc.Name x.Category.Name)
-            match existing with
-            | Some e ->
-                    let newMC = { e with Count = newValue }
-                    let filteredMccs = model.PartialData.PartialCounts |> List.filter(fun x -> not (Helpers.stringsEqualCI mcc.Name x.Category.Name))
-                    let newPartial = { model.PartialData with PartialCounts = (newMC :: filteredMccs) }
-                    {model with PartialData = newPartial}, Noop
-            | None ->
-                    let newMC = { Types.ModelCount.Empty() with Count = newValue; Category = mcc }
-                    let filteredMccs = model.PartialData.PartialCounts |> List.filter(fun x -> not (Helpers.stringsEqualCI mcc.Name x.Category.Name))
-                    let newPartial = { model.PartialData with PartialCounts = (newMC :: filteredMccs) }
-                    {model with PartialData = newPartial}, Noop
+        | UpdatePartialData newPartial ->
+            { model with PartialData = newPartial }, Noop
+//        | UpdateUnitCountCategoryValue (mcc, newValue) ->
+//            let existing = model.PartialData.PartialCounts |> List.tryFind (fun x -> Helpers.stringsEqualCI mcc.Name x.Category.Name)
+//            match existing with
+//            | Some e ->
+//                    let newMC = { e with Count = newValue }
+//                    let filteredMccs = model.PartialData.PartialCounts |> List.filter(fun x -> not (Helpers.stringsEqualCI mcc.Name x.Category.Name))
+//                    let newPartial = { model.PartialData with PartialCounts = (newMC :: filteredMccs) }
+//                    {model with PartialData = newPartial}, Noop
+//            | None ->
+//                    let newMC = { Types.ModelCount.Empty() with Count = newValue; Category = mcc }
+//                    let filteredMccs = model.PartialData.PartialCounts |> List.filter(fun x -> not (Helpers.stringsEqualCI mcc.Name x.Category.Name))
+//                    let newPartial = { model.PartialData with PartialCounts = (newMC :: filteredMccs) }
+//                    {model with PartialData = newPartial}, Noop
         | AddUnit ->
             let p = model.PartialData
             if p.IsValid() then
