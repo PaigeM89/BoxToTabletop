@@ -60,7 +60,8 @@ module Project =
             { model with Project = { model.Project with Units = model.Project.Units |> List.filter (fun x -> x.Id <> id) } }
 
     type Msg =
-    | None
+    | Noop
+    | CoreUpdate of update : BoxToTabletop.Client.Core.Updates
     | UpdateUnitName of newName : string
     | UpdateUnitModelCount of newCount : int
     | UpdateUnitCountCategoryValue of category : Types.ModelCountCategory * newValue : int
@@ -73,7 +74,6 @@ module Project =
         //https://github.com/fable-compiler/fable-react/blob/master/src/Fable.React.Props.fs
         open Fable.React.Props
         //https://github.com/fable-compiler/fable-react/blob/master/src/Fable.React.Standard.fs
-        open Fable.React.Standard
 
         let unitRow (unit : Unit) dispatch =
             let categoryValues =
@@ -84,12 +84,12 @@ module Project =
             tr [] [
                 td [] [ str unit.Name ]
                 td [] [ str (string unit.Models) ]
-                //if cs.ShowAssembled then td [] [ str (string unit.Assembled) ]
                 yield! categoryValues
                 td [] [ Delete.delete [ Delete.Size IsMedium; Delete.OnClick (fun _ -> unit.Id |> Some |> DeleteRow |> dispatch ) ] [ ] ]
             ]
 
         let view (model : Model) (dispatch : Msg -> unit) =
+            printfn "drawing project. columns are %A" model.Columns
             let categoryHeaders =
                 [
                     for cat in model.Columns ->
@@ -99,7 +99,6 @@ module Project =
                 tr [ Class "table" ] [
                     th [] [ str "Name" ]
                     th [] [ str "Models" ]
-                    //if model.ColumnSettings.ShowAssembled then th [] [ str "Assembled" ]
                     yield! categoryHeaders
                     // add a blank header for the add/delete button column
                     th [] []
@@ -118,7 +117,7 @@ module Project =
                     ]
                 let numericInput name dv action =
                     Notification.notification [ notifications ] [
-                        input [ Id name ; Type "number"; DefaultValue dv; OnChange (action) ] //(fun ev -> ev.Value |> Helpers.parseIntOrZero |> action |> dispatch) ]
+                        input [ Id name ; Type "number"; DefaultValue dv; OnChange (action) ]
                     ]
 
                 let mods : Modifier.IModifier list =
@@ -139,7 +138,7 @@ module Project =
                                         let count = Helpers.parseIntOrZero ev.Value
                                         UpdateUnitCountCategoryValue (col, count)
                                         |> dispatch
-                                numericInput col.Name count func |> Some //(fun ev -> UpdateUnitCountCategoryValue (col, (Helpers.parseIntOrZero ev.Value) ) |> dispatch )
+                                numericInput col.Name count func |> Some
                             else
                                 Option.None
                     ] |> List.choose id
@@ -147,7 +146,6 @@ module Project =
                 tr [] [
                     td [] [ nameInput ]
                     td [] [ modelCountInput ]
-                    //if model.ColumnSettings.ShowAssembled then td [] [ numericInput "assembled" model.PartialData.AssembledCount UpdateAssembledCount ]
                     yield! countColumns
                     td [] [ deleteButton ]
                 ]
@@ -159,27 +157,48 @@ module Project =
                 ]
             table
 
-    let update (model : Model) (msg : Msg)  =
+    let handleCoreUpdate (update : Core.Updates) (model : Model) =
+        match update with
+        | Core.MCCVisibilityChange mcc ->
+            printfn "Hnadling visibility update"
+            let removed = model.Columns |> List.filter (fun x -> Helpers.stringsEqualCI mcc.Name x.Name)
+            { model with Columns = (mcc :: removed) }, Noop
+
+
+
+    let update (model : Model) (msg : Msg) : (Model * Msg) =
         match msg with
-        | None -> model, None
+        | Noop -> model, Noop
+        | CoreUpdate update ->
+            printfn "handling core update in project"
+            handleCoreUpdate update model
         | UpdateUnitName newName ->
-            { model with PartialData = { model.PartialData with UnitName = newName } }, None
+            { model with PartialData = { model.PartialData with UnitName = newName } }, Noop
         | UpdateUnitModelCount newCount ->
-            { model with PartialData = { model.PartialData with ModelCount = newCount } }, None
-//        | UpdateAssembledCount newCount ->
-//            { model with PartialData = { model.PartialData with AssembledCount = newCount } }, None
+            { model with PartialData = { model.PartialData with ModelCount = newCount } }, Noop
+        | UpdateUnitCountCategoryValue (mcc, newValue) ->
+            let existing = model.PartialData.PartialCounts |> List.tryFind (fun x -> Helpers.stringsEqualCI mcc.Name x.Category.Name)
+            match existing with
+            | Some e ->
+                    let newMC = { e with Count = newValue }
+                    let filteredMccs = model.PartialData.PartialCounts |> List.filter(fun x -> not (Helpers.stringsEqualCI mcc.Name x.Category.Name))
+                    let newPartial = { model.PartialData with PartialCounts = (newMC :: filteredMccs) }
+                    {model with PartialData = newPartial}, Noop
+            | None ->
+                    let newMC = { Types.ModelCount.Empty() with Count = newValue; Category = mcc }
+                    let filteredMccs = model.PartialData.PartialCounts |> List.filter(fun x -> not (Helpers.stringsEqualCI mcc.Name x.Category.Name))
+                    let newPartial = { model.PartialData with PartialCounts = (newMC :: filteredMccs) }
+                    {model with PartialData = newPartial}, Noop
         | AddUnit ->
             let p = model.PartialData
             if p.IsValid() then
                 let unit = { Types.Unit.Empty() with Name = p.UnitName; Models = p.ModelCount }
-                model |> Model.clearAndAddUnit unit, None
+                model |> Model.clearAndAddUnit unit, Noop
             else
-                model |> Model.markShowErrors true, None
+                model |> Model.markShowErrors true, Noop
         | DeleteRow (Some id) ->
-                model |> Model.removeRowById id, None
-        | DeleteRow (Option.None) ->
+                model |> Model.removeRowById id, Noop
+        | DeleteRow (None) ->
                 printfn "Unable to delete row without ID"
-                model, None
-//        | UpdatedColumnSettings cs ->
-//                { model with ColumnSettings = cs }, None
+                model, Noop
 

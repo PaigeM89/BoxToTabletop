@@ -5,27 +5,24 @@ open Fulma
 open BoxToTabletop.Domain
 
 module ProjectSettings =
-    //open Elmish
     open FSharp.Control.AsyncRx
     open Fable.Reaction
 
     type Model = {
         Name : string
-        ColumnSettings : Types.ColumnSettings
+        ModelCountCategories : Types.ModelCountCategory list
     } with
         static member Init() = {
             Name = ""
-            ColumnSettings = Types.ColumnSettings.Empty()
+            ModelCountCategories = Types.stubCategories()
         }
 
-    module Model =
-        let updateShowAssembled value model =
-            let cs = { model.ColumnSettings with ShowAssembled = value }
-            { model with ColumnSettings = cs }
 
     type Msg =
+    | Noop
+    | CoreUpdate of update : BoxToTabletop.Client.Core.Updates
     | UpdateName of name : string
-    | UpdateShowAssembled of value : bool
+    | ToggleMCCVisibility of mcc : Types.ModelCountCategory
 
     module View =
         open Fable.React
@@ -45,9 +42,10 @@ module ProjectSettings =
                 label [ HtmlFor cbName ] [ str cbName ]
             ]
 
-        let createCheckboxes (settings: Types.ColumnSettings) dispatch =
+        let createCheckboxes (model : Model) dispatch =
             [
-                checkBoxFor "Show Assembled" settings.ShowAssembled (fun ev -> ev.Checked |> UpdateShowAssembled |> dispatch)
+                for mcc in model.ModelCountCategories ->
+                    checkBoxFor mcc.Name mcc.Enabled (fun ev -> { mcc with Enabled = not mcc.Enabled } |> ToggleMCCVisibility |> dispatch)
             ]
 
         let view (model : Model) dispatch =
@@ -56,13 +54,27 @@ module ProjectSettings =
                 hr []
                 input [ Id "projectNameInput"; DefaultValue model.Name; OnChange (fun ev -> UpdateName ev.Value |> dispatch) ]
                 br []
-                yield! createCheckboxes (model.ColumnSettings) dispatch
+                yield! createCheckboxes model dispatch
             ]
 
+    let handleCoreUpdate (update : Core.Updates) (model :Model) =
+        match update with
+        | Core.MCCVisibilityChange mcc ->
+            model, Noop
 
     let update (model : Model) (msg : Msg) =
         match msg with
-        | UpdateName name -> {model with Name = name}
-        | UpdateShowAssembled value ->
-            Model.updateShowAssembled value model
-        | _ -> model
+        | Noop -> model, Noop
+        | CoreUpdate coreUpdate ->
+            handleCoreUpdate coreUpdate model
+        | UpdateName name -> {model with Name = name}, Noop
+        | ToggleMCCVisibility mcc ->
+            let existing = Types.getModelCountCategoryByName mcc.Name model.ModelCountCategories
+            match existing with
+            | Some e ->
+                let newMccs = Types.replaceModelCountCategory mcc model.ModelCountCategories
+                { model with ModelCountCategories = newMccs }, Core.MCCVisibilityChange mcc |> CoreUpdate
+            | None ->
+                // todo: is this oging to cause consistent behavior, if triggered?
+                { model with ModelCountCategories = ( mcc :: model.ModelCountCategories ) }, Core.MCCVisibilityChange mcc |> CoreUpdate
+

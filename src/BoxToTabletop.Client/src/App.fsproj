@@ -6,6 +6,7 @@
   <ItemGroup>
     <Compile Include="../../Shared/Helpers.fs" />
     <Compile Include="../../Shared/Types.fs" />
+    <Compile Include="Core.fs" />
     <Compile Include="ProjectSettings.fs" />
     <Compile Include="Project.fs" />
     <Compile Include="Root.fs" />

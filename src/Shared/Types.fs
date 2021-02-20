@@ -7,10 +7,12 @@ module Types =
     type ModelCountCategory = {
         Id : Guid
         Name : string
+        //todo: consider pulling this out and tupling at a higher level
+        //the object relationship seems weird here
         Enabled : bool
     } with
         static member Empty() = {
-            Id = Guid.Empty
+            Id = Guid.NewGuid()
             Name = ""
             Enabled = false
         }
@@ -29,6 +31,15 @@ module Types =
     let getCountColumn (cat : ModelCountCategory) (counts : ModelCount list) =
         counts |> List.tryFind (fun x -> Helpers.stringsEqualCI x.Category.Name cat.Name)
 
+    let getModelCountCategoryByName (name : string) (mccs : ModelCountCategory list) =
+        mccs |> List.tryFind (fun x -> Helpers.stringsEqualCI x.Name name)
+
+    let replaceModelCountCategory (newCat : ModelCountCategory) (mccs : ModelCountCategory list) =
+        let newList =
+            mccs
+            |> List.filter (fun x -> not (Helpers.stringsEqualCI x.Name newCat.Name))
+        newCat :: newList
+
     let createCountCategory name =
         { ModelCount.Empty() with Category = { ModelCountCategory.Empty() with Name = name } }
 
@@ -39,7 +50,7 @@ module Types =
         createCountCategory "Based"
     ]
 
-    let stubColumns() = stubModelCounts() |> List.map (fun x -> x.Category)
+    let stubCategories() = stubModelCounts() |> List.map (fun x -> x.Category)
 
     type Unit = {
         Id : Guid
@@ -50,28 +61,12 @@ module Types =
         /// </remarks>
         Models : int
         ModelCounts : ModelCount list
-//        Assembled : int
-//        Primed : int
-//        Painted : int
-//        Based : int
-//        Points : int
-//        Power : int
-//        Cost : int
-//        Purchased : bool
     } with
         static member Empty() = {
             Id = Guid.NewGuid()
             Name = ""
             Models = 0
             ModelCounts = stubModelCounts()
-//            Assembled = 0
-//            Primed = 0
-//            Painted = 0
-//            Based = 0
-//            Points= 0
-//            Power = 0
-//            Cost = 0
-//            Purchased = true
         }
 
     type Category = {
@@ -83,34 +78,11 @@ module Types =
             Name = ""
         }
 
-    type ColumnSettings = {
-        ShowModelCount : bool
-        ShowAssembled : bool
-        ShowPrimed : bool
-        ShowPainted : bool
-        ShowBased : bool
-        ShowPoints : bool
-        ShowPower : bool
-        ShowCost : bool
-        ShowPurchased : bool
-    } with
-        static member Empty() = {
-            ShowModelCount = true
-            ShowAssembled = true
-            ShowPrimed = true
-            ShowPainted = true
-            ShowBased = true
-            ShowPoints = true
-            ShowPower = false
-            ShowCost = false
-            ShowPurchased = false
-        }
-
     type Project = {
         Id : Guid
         Name : string
         Category : Category option
-        ColumnSettings : ColumnSettings
+        //ColumnSettings : ColumnSettings
         CountCategories : ModelCountCategory list
         Units : Unit list
         IsPublic : bool
@@ -119,8 +91,8 @@ module Types =
             Id = Guid.NewGuid()
             Name = ""
             Category = None
-            ColumnSettings = ColumnSettings.Empty()
-            CountCategories = stubColumns()
+            //ColumnSettings = ColumnSettings.Empty()
+            CountCategories = stubCategories()
             Units = []
             IsPublic = true
         }
