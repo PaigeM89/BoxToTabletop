@@ -32,7 +32,7 @@ module ProjectSettings =
         open Fable.React.Standard
 
         let checkBoxFor cbName isChecked  oc =
-            div [] [
+            Panel.checkbox [] [
                 input [
                     Class "toggle"
                     Id cbName
@@ -50,11 +50,11 @@ module ProjectSettings =
             ]
 
         let view (model : Model) dispatch =
-            summary [] [
-                Heading.h3 [] [ str "Project Name" ]
-                hr []
-                input [ Id "projectNameInput"; DefaultValue model.Name; OnChange (fun ev -> UpdateName ev.Value |> dispatch) ]
-                br []
+            Panel.panel [] [
+                Panel.heading [] [ str "Project Settings" ]
+                Panel.Block.div [] [
+                    Input.text [ Input.Size IsMedium; Input.Placeholder "Project Name" ]
+                ]
                 yield! createCheckboxes model dispatch
             ]
 

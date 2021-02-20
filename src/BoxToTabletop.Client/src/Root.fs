@@ -42,12 +42,15 @@ let view (model : Model) (dispatch : Msg -> unit)  =
         Heading.h2 [] [ str "Welcome to the Box To Table Wargame project tracker!"]
         match model with
         | Active state ->
-            Columns.columns [ Columns.IsGap (Screen.All, Columns.Is1); Columns.IsGrid ]
-                [
-                    Column.column [ Column.Width (Screen.All, Column.Is3) ] [ projectSettingsView state ]
-                    Column.column [ Column.Width (Screen.All, Column.Is1) ] []
-                    Column.column [ Column.Width (Screen.All, Column.Is8) ] [ projectView state ]
-                ]
+            Container.container [ Container.IsFluid ] [
+                Columns.columns [ Columns.IsGap (Screen.All, Columns.Is1); Columns.IsGrid ]
+                    [
+                        Column.column [ Column.Width (Screen.All, Column.Is3) ] [ projectSettingsView state ]
+                        Column.column [ Column.Width (Screen.All, Column.IsNarrow) ] []
+                        // Column.Width (Screen.All, Column.IsFourFifths)
+                        Column.column [  ] [ projectView state ]
+                    ]
+            ]
         | _ -> ()
     ]
 

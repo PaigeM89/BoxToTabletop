@@ -82,6 +82,33 @@ module Project =
         open Fable.React.Props
         //https://github.com/fable-compiler/fable-react/blob/master/src/Fable.React.Standard.fs
 
+        let numericInput notifications name dv action =
+            Level.level [] [
+                Level.item [ Level.Item.HasTextCentered ] [ div [] [
+                        Level.heading [] [ str name ]
+                        Level.item [] [ input [ Id name ; Type "number"; DefaultValue dv; OnChange (action) ] ]
+                    ]
+                ]
+            ]
+
+        let inputNewUnit cs partial dispatch =
+            let notifications = if partial.ShowError then Notification.Color IsDanger else Notification.Color IsWhite
+            let func (ev : Browser.Types.Event) transform =
+                let c = Parsing.parseIntOrZero ev.Value
+                UpdatePartialData (transform partial c)
+                |> dispatch
+            form [] [
+                Level.level [] [ Level.item [ Level.Item.HasTextCentered ] [
+                        numericInput notifications "Models" partial.ModelCount (fun ev -> func ev (fun p c -> { p with ModelCount = c }))
+                        if cs.AssemblyVisible then numericInput notifications "Assembled" partial.AssembledCount (fun ev -> func ev (fun p c -> { p with AssembledCount = c }))
+                        if cs.PrimedVisible then numericInput notifications "Primed" partial.PrimedCount (fun ev -> func ev (fun p c -> { p with PrimedCount = c }))
+                        if cs.PaintedVisible then numericInput notifications "Painted" partial.PaintedCount (fun ev -> func ev (fun p c -> { p with PaintedCount = c }))
+                        if cs.BasedVisible then numericInput notifications "Based" partial.BasedCount (fun ev -> func ev (fun p c -> { p with BasedCount = c }))
+                        Button.Input.submit [ Button.Props [ Value "Add" ]; Button.Color IsSuccess ]
+                    ]
+                ]
+            ]
+
         let unitRow (cs : ColumnSettings) (unit : Unit) dispatch =
             let optionalColumns = [
                 for (name, value) in Unit.enumerateColumns cs unit ->
@@ -109,7 +136,7 @@ module Project =
                     // add a blank header for the add/delete button column
                     th [] []
                 ]
-            let addRow =
+            let inputRow =
                 let notifications = if model.PartialData.ShowError then Notification.Color IsDanger else Notification.Color IsWhite
 
                 let nameInput =
@@ -122,17 +149,12 @@ module Project =
                         input [ Id "modelCount" ; Type "number"; DefaultValue model.PartialData.ModelCount; OnChange (fun ev -> ev.Value |> Parsing.parseIntOrZero |> UpdateUnitModelCount |> dispatch) ]
                     ]
 
-                let numericInput name dv action =
-                    Notification.notification [ notifications ] [
-                        input [ Id name ; Type "number"; DefaultValue dv; OnChange (action) ]
-                    ]
-
 //                let mods : Modifier.IModifier list =
 //                       [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered)]
 
                 //let mods' = Modifiers [ mods ]
                 // todo: make this not ugly
-                let deleteButton = button [ OnClick (fun _ -> Msg.AddUnit |> dispatch )] [ str "Add" ]
+                let deleteButton = button [ OnClick (fun _ -> Msg.AddUnit |> dispatch )] [ str "Delete" ]
 
                 let optionalColumns cs (partial : PartialData) =
                     let func (ev : Browser.Types.Event) transform =
@@ -141,10 +163,10 @@ module Project =
                         |> dispatch
 
                     [
-                        if cs.AssemblyVisible then numericInput "Assembled" partial.AssembledCount (fun ev -> func ev (fun p c -> { p with AssembledCount = c }))
-                        if cs.PrimedVisible then numericInput "Primed" partial.PrimedCount (fun ev -> func ev (fun p c -> { p with PrimedCount = c }))
-                        if cs.PaintedVisible then numericInput "Painted" partial.PaintedCount (fun ev -> func ev (fun p c -> { p with PaintedCount = c }))
-                        if cs.BasedVisible then numericInput "Based" partial.BasedCount (fun ev -> func ev (fun p c -> { p with BasedCount = c }))
+                        if cs.AssemblyVisible then numericInput notifications "Assembled" partial.AssembledCount (fun ev -> func ev (fun p c -> { p with AssembledCount = c }))
+                        if cs.PrimedVisible then numericInput notifications "Primed" partial.PrimedCount (fun ev -> func ev (fun p c -> { p with PrimedCount = c }))
+                        if cs.PaintedVisible then numericInput notifications "Painted" partial.PaintedCount (fun ev -> func ev (fun p c -> { p with PaintedCount = c }))
+                        if cs.BasedVisible then numericInput notifications "Based" partial.BasedCount (fun ev -> func ev (fun p c -> { p with BasedCount = c }))
                     ]
 
                 tr [] [
@@ -154,12 +176,23 @@ module Project =
                     td [] [ deleteButton ]
                 ]
             let table =
-                Table.table [ Table.IsBordered; Table.IsStriped ] [
+                [
                     yield tableHeaders
-                    yield addRow
+                    //yield inputRow
                     for unit in model.Project.Units do yield unitRow model.ColumnSettings unit dispatch
                 ]
-            table
+                |> Table.table [ Table.IsBordered; Table.IsStriped; Table.IsNarrow; Table.IsHoverable ]
+            Section.section [] [
+                inputNewUnit model.ColumnSettings model.PartialData dispatch
+                hr []
+                Columns.columns [ Columns.IsGap(Screen.All, Columns.Is1) ] [
+                    Column.column [  ] [
+                        table
+                    ]
+                    Column.column [ Column.Width(Screen.All, Column.IsNarrow) ] [ ]
+                ]
+            ]
+//            ]
 
     let handleCoreUpdate (update : Core.Updates) (model : Model) =
         match update with
