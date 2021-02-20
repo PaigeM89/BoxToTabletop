@@ -52,8 +52,8 @@ module ProjectSettings =
 
         let view (model : Model) dispatch =
             summary [] [
-                str "Name"
-                br []
+                Heading.h3 [] [ str "Project Name" ]
+                hr []
                 input [ Id "projectNameInput"; DefaultValue model.Name; OnChange (fun ev -> UpdateName ev.Value |> dispatch) ]
                 br []
                 yield! createCheckboxes (model.ColumnSettings) dispatch

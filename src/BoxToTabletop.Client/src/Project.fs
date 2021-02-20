@@ -20,11 +20,13 @@ module Project =
     type PartialData = {
         UnitName : string
         ModelCount : int
+        AssembledCount : int
         ShowError : bool
     } with
         static member Init() = {
             UnitName = ""
             ModelCount = 0
+            AssembledCount = 0
             ShowError = false
         }
 
@@ -34,6 +36,7 @@ module Project =
     type Model = {
         Project : Types.Project
         PartialData : PartialData
+        ColumnSettings : Types.ColumnSettings
         //ShouldClear : bool
     } with
         static member Init() = {
@@ -41,7 +44,7 @@ module Project =
                 Project.Empty() with Units = mockUnits
             }
             PartialData = PartialData.Init()
-            //ShouldClear = false
+            ColumnSettings = Types.ColumnSettings.Empty()
         }
 
     module Model =
@@ -62,8 +65,10 @@ module Project =
     | None
     | UpdateUnitName of newName : string
     | UpdateUnitModelCount of newCount : int
+    | UpdateAssembledCount of newCount : int
     | AddUnit
     | DeleteRow of id : Guid option
+    | UpdatedColumnSettings of cs : Types.ColumnSettings
 
     module View =
         open Fable.React
@@ -73,10 +78,11 @@ module Project =
         //https://github.com/fable-compiler/fable-react/blob/master/src/Fable.React.Standard.fs
         open Fable.React.Standard
 
-        let unitRow (unit : Unit) dispatch =
+        let unitRow (cs : ColumnSettings) (unit : Unit) dispatch =
             tr [] [
                 td [] [ str unit.Name ]
                 td [] [ str (string unit.Models) ]
+                if cs.ShowAssembled then td [] [ str (string unit.Assembled) ]
                 td [] [ Delete.delete [ Delete.Size IsMedium; Delete.OnClick (fun _ -> unit.Id |> Some |> DeleteRow |> dispatch ) ] [ ] ]
             ]
 
@@ -85,6 +91,7 @@ module Project =
                 tr [ Class "table" ] [
                     th [] [ str "Name" ]
                     th [] [ str "Models" ]
+                    if model.ColumnSettings.ShowAssembled then th [] [ str "Assembled" ]
                     th [] []
                 ]
             let addRow =
@@ -99,6 +106,11 @@ module Project =
                     Notification.notification [ notifications ] [
                         input [ Id "modelCount" ; Type "number"; DefaultValue model.PartialData.ModelCount; OnChange (fun ev -> ev.Value |> Helpers.parseIntOrZero |> UpdateUnitModelCount |> dispatch) ]
                     ]
+                let numericInput name dv action =
+                    Notification.notification [ notifications ] [
+                        input [ Id name ; Type "number"; DefaultValue dv; OnChange (fun ev -> ev.Value |> Helpers.parseIntOrZero |> action |> dispatch) ]
+                    ]
+
                 let mods : Modifier.IModifier list =
                        [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered)]
 
@@ -109,13 +121,14 @@ module Project =
                 tr [] [
                     td [] [ nameInput ]
                     td [] [ modelCountInput ]
+                    if model.ColumnSettings.ShowAssembled then td [] [ numericInput "assembled" model.PartialData.AssembledCount UpdateAssembledCount ]
                     td [] [ deleteButton ]
                 ]
             let table =
                 Table.table [ Table.IsBordered; Table.IsStriped ] [
                     yield tableHeaders
                     yield addRow
-                    for unit in model.Project.Units do yield unitRow unit dispatch
+                    for unit in model.Project.Units do yield unitRow model.ColumnSettings unit dispatch
                 ]
             table
 
@@ -126,6 +139,8 @@ module Project =
             { model with PartialData = { model.PartialData with UnitName = newName } }, None
         | UpdateUnitModelCount newCount ->
             { model with PartialData = { model.PartialData with ModelCount = newCount } }, None
+        | UpdateAssembledCount newCount ->
+            { model with PartialData = { model.PartialData with AssembledCount = newCount } }, None
         | AddUnit ->
             let p = model.PartialData
             if p.IsValid() then
@@ -138,4 +153,6 @@ module Project =
         | DeleteRow (Option.None) ->
                 printfn "Unable to delete row without ID"
                 model, None
+        | UpdatedColumnSettings cs ->
+                { model with ColumnSettings = cs }, None
 
