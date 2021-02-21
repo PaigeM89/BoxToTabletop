@@ -28,7 +28,8 @@ nuget Thoth.Json ~> 5.1
 nuget Fable.Core ~> 3
 nuget Fable.Browser.Dom ~> 2
 nuget Fable.Fetch
-
+nuget Fable.FontAwesome
+nuget Fable.FontAwesome.Free
 nuget Fable.Elmish
 nuget Fable.Elmish.React
 

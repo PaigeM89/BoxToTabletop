@@ -55,6 +55,7 @@ module Project =
         Project : Types.Project
         PartialData : PartialData
         ColumnSettings : ColumnSettings
+        SaveError : string option
     } with
         static member Init() = {
             Project = {
@@ -62,6 +63,7 @@ module Project =
             }
             PartialData = PartialData.Init()
             ColumnSettings = ColumnSettings.Empty()
+            SaveError = Some "Test save error"
         }
 
     module Model =
@@ -87,6 +89,7 @@ module Project =
     | AddUnitSuccess of string
     | AddUnitFailure of exn
     | DeleteRow of id : Guid option
+    | DeleteSaveError
 
     module View =
         open Fable.React
@@ -94,6 +97,7 @@ module Project =
         //https://github.com/fable-compiler/fable-react/blob/master/src/Fable.React.Props.fs
         open Fable.React.Props
         //https://github.com/fable-compiler/fable-react/blob/master/src/Fable.React.Standard.fs
+        open Fable.FontAwesome
 
         let addUnitWrapper custom elements =
             div [ ClassName "Block"  ] [ Box.box' custom [
@@ -177,8 +181,24 @@ module Project =
                 td [] [ Delete.delete [ Delete.Size IsMedium; Delete.OnClick (fun _ -> unit.Id |> Some |> DeleteRow |> dispatch ) ] [ ] ]
             ]
 
+        let mapSaveError (model : Model) dispatch =
+            match model.SaveError with
+            | Some error ->
+                Message.message [ Message.Color IsDanger ] [
+                    Message.header [] [
+                        str "Error"
+                        Delete.delete [ Delete.OnClick (fun _ -> dispatch DeleteSaveError) ] [ ]
+                    ]
+                    Message.body [] [
+                        str (sprintf "There was an error saving: %s" error)
+                    ]
+                ] |> Some
+            | None -> None
+
         let view (model : Model) (dispatch : Msg -> unit) =
             printfn "drawing project. columns are %A" model.ColumnSettings
+            let saveError = mapSaveError model dispatch
+
             let optionalColumns =
                 [
                     for (name, value) in model.ColumnSettings.Enumerate() ->
@@ -201,6 +221,7 @@ module Project =
                 ]
                 |> Table.table [ Table.IsBordered; Table.IsStriped; Table.IsNarrow; Table.IsHoverable; Table.CustomClass "list-units-table" ]
             Section.section [] [
+                if Option.isSome saveError then Option.get saveError
                 Heading.h3 [ Heading.IsSubtitle  ] [ Text.p [ Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ][ str "Add a new unit" ]]
                 inputNewUnit model.ColumnSettings model.PartialData dispatch
                 hr []
@@ -210,6 +231,8 @@ module Project =
                     ]
                     Column.column [ Column.Width(Screen.All, Column.IsNarrow) ] [ ]
                 ]
+                //todo: play around with auto-saving all the time
+                //Button.button [] [ str "Save Changes" ]
             ]
 
     let handleCoreUpdate (update : Core.Updates) (model : Model) =
@@ -239,19 +262,21 @@ module Project =
             let p = model.PartialData
             if p.IsValid() then
                 let unit = p.ToUnit()
-                let cmd = Cmd.OfAsync.either saveUnit unit AddUnitSuccess AddUnitFailure
-                model |> Model.clearAndAddUnit unit, cmd
+                let asyncSaveCmd = Cmd.OfAsync.either saveUnit unit AddUnitSuccess AddUnitFailure
+                model |> Model.clearAndAddUnit unit, asyncSaveCmd
             else
                 model |> Model.markShowErrors true, Cmd.none
         | AddUnitSuccess successMsg ->
             printfn "%s" successMsg
-            model, Cmd.none
+            { model with SaveError = None}, Cmd.none
         | AddUnitFailure err ->
             printfn "%A" err
             model, Cmd.none
         | DeleteRow (Some id) ->
-                model |> Model.removeRowById id, Cmd.none
+            model |> Model.removeRowById id, Cmd.none
         | DeleteRow (None) ->
-                printfn "Unable to delete row without ID"
-                model, Cmd.none
+            printfn "Unable to delete row without ID"
+            model, Cmd.none
+        | DeleteSaveError ->
+            { model with SaveError = None }, Cmd.none
 

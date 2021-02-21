@@ -1,6 +1,9 @@
 // Note this only includes basic configuration for development mode.
 // For a more comprehensive configuration check:
 // https://github.com/fable-compiler/webpack-config-template
+//
+// import 'node_modules/@fortawesome/fontawesome-free/css/all.css';
+// import 'node_modules/@fortawesome/fontawesome-free/js/all.js';
 
 var path = require("path");
 var HtmlWebpackPlugin = require('html-webpack-plugin');
