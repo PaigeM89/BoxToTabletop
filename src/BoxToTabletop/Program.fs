@@ -55,19 +55,25 @@ module Say =
 
 module Main =
     open Argu
+    open Microsoft.AspNetCore.Builder
+    open Microsoft.AspNetCore.Hosting
+    open Microsoft.Extensions.Hosting
+    open Microsoft.Extensions.DependencyInjection
+    open Giraffe
+    open BoxToTabletop
 
     type CLIArguments =
         | Info
         | Version
         | Favorite_Color of string // Look in App.config
-        | [<MainCommand>] Hello of string
+        | Run
         interface IArgParserTemplate with
             member s.Usage =
                 match s with
                 | Info -> "More detailed information"
                 | Version -> "Version of application"
                 | Favorite_Color _ -> "Favorite color"
-                | Hello _ -> "Who to say hello to"
+                | Run -> "Run the server"
 
     [<EntryPoint>]
     let main (argv: string array) =
@@ -77,12 +83,10 @@ module Main =
             AssemblyInfo.printVersion()
         elif results.Contains Info then
             AssemblyInfo.printInfo()
-        elif results.Contains Hello then
-            match results.TryGetResult Hello with
-            | Some v ->
-                let color = results.GetResult Favorite_Color
-                Say.hello v |> Say.colorizeIn color
-            | None -> parser.PrintUsage() |> printfn "%s"
+        elif results.Contains Run then
+            let host = BoxToTabletop.Webhost.buildHost()
+            let thing = host.Run()
+            ()
         else
             parser.PrintUsage() |> printfn "%s"
         0

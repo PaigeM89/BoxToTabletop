@@ -9,6 +9,9 @@ nuget Microsoft.NET.Test.Sdk 16.8.0
 nuget altcover ~> 7
 nuget Packaging.Targets 0.1.189
 
+nuget Giraffe
+nuget Dapper.FSharp
+
 nuget Thoth.Json ~> 5.1
 nuget Fable.Core ~> 3
 nuget Fable.Browser.Dom ~> 2
@@ -20,10 +23,11 @@ nuget Fable.Elmish.React
 nuget FSharp.Control.AsyncRx ~> 1.6
 nuget Fable.Reaction ~> 3.5
 nuget Fable.React
-#nuget Feliz
-#nuget Feliz.Bulma
 
 nuget Fulma
+
+#conflict resolution packages
+nuget System.Security.Permissions >= 5.0
 
 // [ FAKE GROUP ]
 group Build
