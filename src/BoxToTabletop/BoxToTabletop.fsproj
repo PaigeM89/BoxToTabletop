@@ -18,7 +18,8 @@
         <None Include="App.config" />
         <Compile Include="../Shared/Helpers.fs" />
         <Compile Include="../Shared/Types.fs" />
-        <Compile Include="Main.fs" />
+        <Compile Include="Repository.fs" />
+        <Compile Include="Program.fs" />
     </ItemGroup>
     <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

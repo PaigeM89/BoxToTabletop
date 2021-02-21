@@ -200,6 +200,7 @@ module Project =
                     th [] []
                 ]
 
+            //todo: make this able to edit in place
             let table =
                 [
                     yield tableHeaders

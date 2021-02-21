@@ -9,7 +9,7 @@
     <Compile Include="Core.fs" />
     <Compile Include="ProjectSettings.fs" />
     <Compile Include="Project.fs" />
-    <Compile Include="Root.fs" />
+    <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Fable.Browser.Dom" Version="2.2.0" />
