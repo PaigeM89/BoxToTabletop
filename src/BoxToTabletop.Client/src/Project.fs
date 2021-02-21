@@ -8,6 +8,7 @@ open System
 open FSharp.Control
 open Fulma
 open Fulma
+open Fulma
 
 module Project =
     open FSharp.Control.AsyncRx
@@ -38,6 +39,16 @@ module Project =
         }
 
         member this.IsValid() = String.length this.UnitName > 0
+
+        member this.ToUnit() = {
+            Unit.Empty() with
+                Name = this.UnitName
+                Models = this.ModelCount
+                Assembled = this.AssembledCount
+                Primed = this.PrimedCount
+                Painted = this.PaintedCount
+                Based = this.BasedCount
+        }
 
 
     type Model = {
@@ -82,32 +93,84 @@ module Project =
         open Fable.React.Props
         //https://github.com/fable-compiler/fable-react/blob/master/src/Fable.React.Standard.fs
 
-        let numericInput notifications name dv action =
-            Level.level [] [
-                Level.item [ Level.Item.HasTextCentered ] [ div [] [
-                        Level.heading [] [ str name ]
-                        Level.item [] [ input [ Id name ; Type "number"; DefaultValue dv; OnChange (action) ] ]
+        let addUnitWrapper elements =
+            div [ ClassName "Block"  ] [ Box.box' [ ] [
+                Level.level [ Level.Level.CustomClass "no-flex-shrink" ] [
+                    Level.item [ Level.Item.HasTextCentered; Level.Item.CustomClass "no-flex-shrink" ] [ div [] elements ]
+                ]
+            ]]
+
+
+        let numericInput inputColor name (dv : int) action  addAllBtn addAllBtnAction =
+            printfn "rendering numeric input for %s with value %i" name dv
+            let numberInput =
+                Input.number [
+                    Input.Id name
+                    Input.Placeholder (string 0)
+                    inputColor
+                    Input.ValueOrDefault (string dv)
+                    Input.OnChange action
+                    Input.Props [ HTMLAttr.Min 0; HTMLAttr.FrameBorder "1px solid";  ]
+                    Input.CustomClass "numeric-input-width"
+                ]
+
+            addUnitWrapper [
+                Level.heading [] [ str name ]
+                Field.div [ Field.HasAddonsRight] [
+                    Level.item [ Level.Item.CustomClass "no-flex-shrink" ] [
+                        numberInput
+                        //todo: make this button match height
+                        // todo: determine if we really want this (messes up tabbing)
+//                        if addAllBtn then
+//                            Button.button [
+//                                Button.Color IsInfo
+//                                Button.IsLight
+//                                Button.Size IsSmall
+//                                Button.OnClick addAllBtnAction
+//                            ] [ str "All" ]
                     ]
                 ]
             ]
 
+        let unitNameInput inputColor partial dispatch =
+            Level.level [  Level.Level.Modifiers [  Modifier.Display (Screen.All, Fulma.Display.Option.Flex) ]; Level.Level.CustomClass "no-flex-shrink"] [
+                Level.item [ Level.Item.HasTextCentered; Level.Item.CustomClass "no-flex-shrink" ] [
+                    div []  [
+                        Level.heading [] [ str "Unit Name" ]
+                        Level.item [] [
+                            Input.text [
+                                inputColor
+                                Input.Placeholder "Unit name"; Input.ValueOrDefault partial.UnitName; Input.OnChange (fun ev -> UpdateUnitName ev.Value |> dispatch)
+                            ]
+                        ]
+                    ]
+                ]
+            ] |> List.singleton |> addUnitWrapper
+
         let inputNewUnit cs partial dispatch =
-            let notifications = if partial.ShowError then Notification.Color IsDanger else Notification.Color IsWhite
+            printfn "rendering new unit input with settings %A and partial %A" cs partial
             let func (ev : Browser.Types.Event) transform =
                 let c = Parsing.parseIntOrZero ev.Value
                 UpdatePartialData (transform partial c)
                 |> dispatch
-            form [] [
-                Level.level [] [ Level.item [ Level.Item.HasTextCentered ] [
-                        numericInput notifications "Models" partial.ModelCount (fun ev -> func ev (fun p c -> { p with ModelCount = c }))
-                        if cs.AssemblyVisible then numericInput notifications "Assembled" partial.AssembledCount (fun ev -> func ev (fun p c -> { p with AssembledCount = c }))
-                        if cs.PrimedVisible then numericInput notifications "Primed" partial.PrimedCount (fun ev -> func ev (fun p c -> { p with PrimedCount = c }))
-                        if cs.PaintedVisible then numericInput notifications "Painted" partial.PaintedCount (fun ev -> func ev (fun p c -> { p with PaintedCount = c }))
-                        if cs.BasedVisible then numericInput notifications "Based" partial.BasedCount (fun ev -> func ev (fun p c -> { p with BasedCount = c }))
-                        Button.Input.submit [ Button.Props [ Value "Add" ]; Button.Color IsSuccess ]
-                    ]
+            let inputColor =
+                if partial.ShowError then IsDanger else NoColor
+                |> Input.Color
+
+            let tempActn = fun _ -> ()
+            Level.level [ ] [
+                Field.div [ Field.HasAddonsRight ] [
+                unitNameInput inputColor partial dispatch
+                numericInput inputColor "Models" partial.ModelCount (fun ev -> func ev (fun p c -> { p with ModelCount = c })) false tempActn
+                if cs.AssemblyVisible then numericInput inputColor "Assembled" partial.AssembledCount (fun ev -> func ev (fun p c -> { p with AssembledCount = c })) true tempActn
+                if cs.PrimedVisible then numericInput inputColor "Primed" partial.PrimedCount (fun ev -> func ev (fun p c -> { p with PrimedCount = c })) true tempActn
+                if cs.PaintedVisible then numericInput inputColor "Painted" partial.PaintedCount (fun ev -> func ev (fun p c -> { p with PaintedCount = c })) true tempActn
+                if cs.BasedVisible then numericInput inputColor "Based" partial.BasedCount (fun ev -> func ev (fun p c -> { p with BasedCount = c })) true tempActn
+                //todo: make this button match height and/or center it and/or "add" / "+" or just make it not ugly thanks
+                Button.Input.submit [ Button.Props [ Value "Add" ]; Button.Color IsSuccess; Button.OnClick (fun _ -> AddUnit |> dispatch) ]
                 ]
             ]
+
 
         let unitRow (cs : ColumnSettings) (unit : Unit) dispatch =
             let optionalColumns = [
@@ -136,53 +199,15 @@ module Project =
                     // add a blank header for the add/delete button column
                     th [] []
                 ]
-            let inputRow =
-                let notifications = if model.PartialData.ShowError then Notification.Color IsDanger else Notification.Color IsWhite
 
-                let nameInput =
-                    Notification.notification [ notifications ] [
-                        input [ Id "nameInput"; DefaultValue model.PartialData.UnitName; OnChange (fun ev -> UpdateUnitName ev.Value |> dispatch) ]
-                    ]
-
-                let modelCountInput =
-                    Notification.notification [ notifications ] [
-                        input [ Id "modelCount" ; Type "number"; DefaultValue model.PartialData.ModelCount; OnChange (fun ev -> ev.Value |> Parsing.parseIntOrZero |> UpdateUnitModelCount |> dispatch) ]
-                    ]
-
-//                let mods : Modifier.IModifier list =
-//                       [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered)]
-
-                //let mods' = Modifiers [ mods ]
-                // todo: make this not ugly
-                let deleteButton = button [ OnClick (fun _ -> Msg.AddUnit |> dispatch )] [ str "Delete" ]
-
-                let optionalColumns cs (partial : PartialData) =
-                    let func (ev : Browser.Types.Event) transform =
-                        let c = Parsing.parseIntOrZero ev.Value
-                        UpdatePartialData (transform partial c)
-                        |> dispatch
-
-                    [
-                        if cs.AssemblyVisible then numericInput notifications "Assembled" partial.AssembledCount (fun ev -> func ev (fun p c -> { p with AssembledCount = c }))
-                        if cs.PrimedVisible then numericInput notifications "Primed" partial.PrimedCount (fun ev -> func ev (fun p c -> { p with PrimedCount = c }))
-                        if cs.PaintedVisible then numericInput notifications "Painted" partial.PaintedCount (fun ev -> func ev (fun p c -> { p with PaintedCount = c }))
-                        if cs.BasedVisible then numericInput notifications "Based" partial.BasedCount (fun ev -> func ev (fun p c -> { p with BasedCount = c }))
-                    ]
-
-                tr [] [
-                    td [] [ nameInput ]
-                    td [] [ modelCountInput ]
-                    yield! optionalColumns model.ColumnSettings model.PartialData
-                    td [] [ deleteButton ]
-                ]
             let table =
                 [
                     yield tableHeaders
-                    //yield inputRow
                     for unit in model.Project.Units do yield unitRow model.ColumnSettings unit dispatch
                 ]
-                |> Table.table [ Table.IsBordered; Table.IsStriped; Table.IsNarrow; Table.IsHoverable ]
+                |> Table.table [ Table.IsBordered; Table.IsStriped; Table.IsNarrow; Table.IsHoverable; Table.CustomClass "list-units-table" ]
             Section.section [] [
+                Heading.h3 [ Heading.IsSubtitle  ] [ Text.p [ Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ][ str "Add a new unit" ]]
                 inputNewUnit model.ColumnSettings model.PartialData dispatch
                 hr []
                 Columns.columns [ Columns.IsGap(Screen.All, Columns.Is1) ] [
@@ -192,7 +217,6 @@ module Project =
                     Column.column [ Column.Width(Screen.All, Column.IsNarrow) ] [ ]
                 ]
             ]
-//            ]
 
     let handleCoreUpdate (update : Core.Updates) (model : Model) =
         match update with
@@ -215,7 +239,7 @@ module Project =
         | AddUnit ->
             let p = model.PartialData
             if p.IsValid() then
-                let unit = { Types.Unit.Empty() with Name = p.UnitName; Models = p.ModelCount }
+                let unit = p.ToUnit()
                 model |> Model.clearAndAddUnit unit, Noop
             else
                 model |> Model.markShowErrors true, Noop

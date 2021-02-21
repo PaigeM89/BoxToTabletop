@@ -45,9 +45,9 @@ module Types =
         BasedVisible : bool
     } with
         static member Empty() = {
-            AssemblyVisible = false
+            AssemblyVisible = true
             PrimedVisible = false
-            PaintedVisible = false
+            PaintedVisible = true
             BasedVisible = false
         }
 

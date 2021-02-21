@@ -72,8 +72,10 @@ let settingsMsgToCmd msg =
 
 let elmishUpdate (msg : Msg) (model : Model) : (Model * Cmd<Msg>)=
     match msg, model with
-    | Start, _ ->
+    | Start, Initializing ->
         State.Empty() |> Active, Cmd.none
+    | Start, Active _ ->
+        model, Cmd.none
     | ProjectMsg projectMsg, Active state ->
         let project', cmd = Project.update state.Project projectMsg
         { state with Project = project' } |> Active, projectMsgToCmd cmd
@@ -112,9 +114,9 @@ let elmishUpdate (msg : Msg) (model : Model) : (Model * Cmd<Msg>)=
 
 
 
-let init () = Initializing, Cmd.ofMsg Start
-
-printfn "Starting application"
+let init () =
+    printfn "in init"
+    Initializing, Cmd.ofMsg Start
 
 Program.mkProgram
     init

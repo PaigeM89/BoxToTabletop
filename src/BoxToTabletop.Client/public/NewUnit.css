@@ -1,0 +1,11 @@
+.no-flex-shrink {
+    flex-shrink: unset !important;
+}
+
+.numeric-input-width {
+    width: 50%;
+}
+
+.list-units-table {
+    column-span: all;
+}
