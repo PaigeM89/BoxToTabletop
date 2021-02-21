@@ -98,7 +98,7 @@ Program.mkProgram
     elmishUpdate
     view
 |> Program.withConsoleTrace
-|> Program.withReactBatched "elmish-app"
+|> Program.withReactBatched "root"
 |> Program.run
 
 
