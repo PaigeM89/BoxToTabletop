@@ -31,7 +31,11 @@ let insertUnit (conn : IDbConnection) (unit : Unit) =
     insert {
         table "units"
         value unit
-    } |> conn.InsertAsync
+    }
+    |> conn.InsertAsync
+    |> Task.map (fun r ->
+        if r = 1 then Ok () else Error (sprintf "Wrong number of records inserted. Inserted %i records" r)
+    )
 
 let updateUnit (conn : IDbConnection) (unit : Unit) =
     update {

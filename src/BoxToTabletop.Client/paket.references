@@ -3,6 +3,8 @@ Fable.Core
 Fable.Browser.Dom
 Fable.Fetch
 Thoth.Json
+Fable.Promise
+Thoth.Fetch
 FSharp.Control.AsyncRx
 Fable.Reaction
 Fable.React
@@ -11,8 +13,6 @@ Fulma
 Fable.FontAwesome
 Fable.FontAwesome.Free
 
-#Feliz
-#Feliz.Bulma
 
 Fable.Elmish
 Fable.Elmish.React

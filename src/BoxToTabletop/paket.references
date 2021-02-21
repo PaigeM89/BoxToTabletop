@@ -13,7 +13,7 @@ Serilog.Settings.Configuration
 Serilog.AspNetCore
 FsToolkit.ErrorHandling
 FsToolkit.ErrorHandling.TaskResult
-
+Thoth.Json.Net
 
 File:FsLibLog.fs
 

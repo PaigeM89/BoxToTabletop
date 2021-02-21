@@ -23,9 +23,11 @@ nuget Serilog.Settings.Configuration
 nuget Serilog.AspNetCore
 nuget FsToolkit.ErrorHandling
 nuget FsToolkit.ErrorHandling.TaskResult
+nuget Thoth.Json.Net
 
 nuget Thoth.Json ~> 5.1
 nuget Fable.Core ~> 3
+nuget Thoth.Fetch
 nuget Fable.Browser.Dom ~> 2
 nuget Fable.Fetch
 nuget Fable.FontAwesome
@@ -36,6 +38,7 @@ nuget Fable.Elmish.React
 nuget FSharp.Control.AsyncRx ~> 1.6
 nuget Fable.Reaction ~> 3.5
 nuget Fable.React
+nuget Fable.Promise
 
 nuget Fulma
 

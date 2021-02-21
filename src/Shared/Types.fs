@@ -3,15 +3,17 @@ namespace BoxToTabletop.Domain
 open System
 open BoxToTabletop.Domain.Helpers
 
+#if FABLE_COMPILER
+open Thoth.Json
+#else
+open Thoth.Json.Net
+#endif
+
 module Types =
 
     type Unit = {
         Id : Guid
         Name : string
-        /// The number of models in the unit.
-        /// <remarks>
-        /// This is such a fundamental measurement of what we're doing that it's not going to be a category
-        /// </remarks>
         Models : int
         Assembled : int
         Primed : int
@@ -28,6 +30,31 @@ module Types =
             Painted = 0
             Based = 0
         }
+        static member Decoder : Decoder<Unit> =
+            Decode.object
+                (fun get ->
+                    {
+                        Id = get.Required.Field "id" Decode.guid
+                        Name = get.Required.Field "name" Decode.string
+                        Models = get.Required.Field "models" Decode.int
+                        Assembled = get.Required.Field "assembled" Decode.int
+                        Primed = get.Required.Field "primed" Decode.int
+                        Painted = get.Required.Field "painted" Decode.int
+                        Based = get.Required.Field "based" Decode.int
+                    }
+                )
+
+        static member Encoder (unit : Unit) =
+            Encode.object
+                [
+                    "id", Encode.guid unit.Id
+                    "name", Encode.string unit.Name
+                    "models", Encode.int unit.Models
+                    "assembled", Encode.int unit.Assembled
+                    "primed", Encode.int unit.Primed
+                    "painted", Encode.int unit.Painted
+                    "based", Encode.int unit.Based
+                ]
 
     type ProjectCategory = {
         Id : Guid

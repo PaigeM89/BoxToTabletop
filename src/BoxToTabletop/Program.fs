@@ -115,6 +115,7 @@ module Main =
         {
             //Handlers.Dependencies.createConnection =  createConnection
             Handlers.Dependencies.loadAllUnits = Repository.loadUnits (createConnection())
+            Handlers.Dependencies.saveUnit = Repository.insertUnit (createConnection())
         }
 
 

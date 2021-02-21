@@ -86,7 +86,7 @@ module Project =
     | UpdateUnitModelCount of newCount : int
     | UpdatePartialData of newPartial : PartialData
     | AddUnit
-    | AddUnitSuccess of string
+    | AddUnitSuccess of result : Types.Unit
     | AddUnitFailure of exn
     | DeleteRow of id : Guid option
     | DeleteSaveError
@@ -240,11 +240,33 @@ module Project =
         | Core.ColumnSettingsChange cs ->
             { model with ColumnSettings = cs }, Cmd.none
 
-    let saveUnit (unit : Unit) = async {
-        do! Async.Sleep 1000
+    module Fetching =
+        open Fable.Core.JS
+        open Fable.Core
+        open Fable.Core.JsInterop
+        open Fetch
+        open Thoth.Fetch
 
-        return (sprintf "database updated, saved unit %A" unit.Name)
-    }
+//        let saveUnit (unit : Unit) = async {
+//            do! Async.Sleep 1000
+//
+//            let props = [
+//                RequestProperties.Method HttpMethod.POST
+//                RequestProperties.Body
+//            ]
+//
+//            let! response = fetch "localhost:5000/units" props |> Async.AwaitPromise
+////            if response.Ok then
+////                let! thing = response.json<string>() |> Async.AwaitPromise
+////                return Ok thing
+////            else
+////                let! errThing = response.json<string>() |> Async.AwaitPromise
+////                return Error errThing
+//            let! item = response.json<string>() |> Async.AwaitPromise
+//            return item
+//        }
+
+        let saveUnit (unit : Unit) = BoxToTabletop.Client.Promises.createUnit unit
 
     let update (model : Model) (msg : Msg) =
         match msg with
@@ -262,12 +284,12 @@ module Project =
             let p = model.PartialData
             if p.IsValid() then
                 let unit = p.ToUnit()
-                let asyncSaveCmd = Cmd.OfAsync.either saveUnit unit AddUnitSuccess AddUnitFailure
-                model |> Model.clearAndAddUnit unit, asyncSaveCmd
+                let promiseSave = Cmd.OfPromise.either Fetching.saveUnit unit AddUnitSuccess AddUnitFailure
+                model |> Model.clearAndAddUnit unit, promiseSave
             else
                 model |> Model.markShowErrors true, Cmd.none
-        | AddUnitSuccess successMsg ->
-            printfn "%s" successMsg
+        | AddUnitSuccess _ ->
+            printfn "%s" "save successful"
             { model with SaveError = None}, Cmd.none
         | AddUnitFailure err ->
             printfn "%A" err
