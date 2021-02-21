@@ -1,6 +1,25 @@
 namespace BoxToTabletop
 
+open System.Data
 open System.Reflection
+open BoxToTabletop.Logging
+open BoxToTabletop.LogHelpers.Operators
+
+module DatabaseInitialization =
+    open Npgsql
+    open Npgsql.FSharp
+
+    let devDockerConnectionString() =
+        Sql.host "localhost"
+        |> Sql.database "boxtotabletop"
+        |> Sql.username "postgres"
+        |> Sql.password "postgres"
+        |> Sql.port 5432
+        //|> Sql.formatConnectionString
+
+    let createDbConnection (bldr : NpgsqlConnectionStringBuilder) =
+        Sql.connect (bldr.ConnectionString)
+        |> Sql.createConnection
 
 module AssemblyInfo =
 
@@ -40,19 +59,6 @@ module AssemblyInfo =
         let githash = getGitHash assembly
         printfn "%s - %A - %s - %s" name.Name version releaseDate githash
 
-module Say =
-    open System
-
-    let nothing name = name |> ignore
-
-    let hello name = sprintf "Hello %s" name
-
-    let colorizeIn color str =
-        let oldColor = Console.ForegroundColor
-        Console.ForegroundColor <- (Enum.Parse(typedefof<ConsoleColor>, color) :?> ConsoleColor)
-        printfn "%s" str
-        Console.ForegroundColor <- oldColor
-
 module Main =
     open Argu
     open Microsoft.AspNetCore.Builder
@@ -61,6 +67,36 @@ module Main =
     open Microsoft.Extensions.DependencyInjection
     open Giraffe
     open BoxToTabletop
+    open Serilog
+
+    open Serilog.Core
+    open Serilog.Events
+
+    type ThreadIdEnricher() =
+      interface ILogEventEnricher with
+        member this.Enrich(logEvent : LogEvent, propertyFactory: ILogEventPropertyFactory) =
+          logEvent.AddPropertyIfAbsent(
+            propertyFactory.CreateProperty(
+              "ThreadId",
+              System.Threading.Thread.CurrentThread.ManagedThreadId
+           )
+          )
+
+    let log =
+         LoggerConfiguration()
+            .MinimumLevel.Verbose()
+            .Enrich.FromLogContext()
+            .Enrich.With(new ThreadIdEnricher())
+            .WriteTo.File("log.txt",
+              outputTemplate = "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:W3}] ({ThreadId}) {Message}{NewLine}{Exception}"
+            )
+            .WriteTo.Console(
+              outputTemplate = "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:W3}] ({ThreadId}) {Message}{NewLine}{Exception}"
+            )
+            .CreateLogger()
+
+    LogProvider.setLoggerProvider (Providers.SerilogProvider.create ())
+    Serilog.Log.Logger <- log
 
     type CLIArguments =
         | Info
@@ -75,8 +111,17 @@ module Main =
                 | Favorite_Color _ -> "Favorite color"
                 | Run -> "Run the server"
 
+    let createDependencies (createConnection : unit -> Npgsql.NpgsqlConnection) =
+        {
+            //Handlers.Dependencies.createConnection =  createConnection
+            Handlers.Dependencies.loadAllUnits = Repository.loadUnits (createConnection())
+        }
+
+
     [<EntryPoint>]
     let main (argv: string array) =
+        let logger = LogProvider.getLoggerByFunc()
+        logger.info (!! "Starting application.")
         let parser = ArgumentParser.Create<CLIArguments>(programName = "BoxToTabletop")
         let results = parser.Parse(argv)
         if results.Contains Version then
@@ -84,7 +129,12 @@ module Main =
         elif results.Contains Info then
             AssemblyInfo.printInfo()
         elif results.Contains Run then
-            let host = BoxToTabletop.Webhost.buildHost()
+            let config = Configuration.ApplicationConfig.Default()
+            let connstr = config.PostgresConfig.PostgresConnectionString()
+            MigrationRunner.run connstr
+            let deps = Repository.createDbConnection connstr |> createDependencies
+            let host = BoxToTabletop.Webhost.buildHost config deps
+
             let thing = host.Run()
             ()
         else

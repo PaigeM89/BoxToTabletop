@@ -11,6 +11,18 @@ nuget Packaging.Targets 0.1.189
 
 nuget Giraffe
 nuget Dapper.FSharp
+nuget Npgsql.FSharp
+nuget FluentMigrator
+nuget FluentMigrator.Runner
+nuget FluentMigrator.Runner.Postgres
+github TheAngryByrd/FsLibLog:0dc37e8471dcece8f89d3f8cc9191be206d6fb01 src/FsLibLog/FsLibLog.fs
+# github TheAngryByrd/FsLibLog:0dc37e8471dcece8f89d3f8cc9191be206d6fb01 adapters/FsLibLog.Adapters.Npgsql/FsLibLog.Adapters.Npgsql.fs
+nuget Serilog
+nuget Serilog.Sinks.Console
+nuget Serilog.Settings.Configuration
+nuget Serilog.AspNetCore
+nuget FsToolkit.ErrorHandling
+nuget FsToolkit.ErrorHandling.TaskResult
 
 nuget Thoth.Json ~> 5.1
 nuget Fable.Core ~> 3

@@ -3,3 +3,17 @@ Argu
 Packaging.Targets
 Giraffe
 Dapper.FSharp
+Npgsql.FSharp
+FluentMigrator
+FluentMigrator.Runner
+FluentMigrator.Runner.Postgres
+Serilog
+Serilog.Sinks.Console
+Serilog.Settings.Configuration
+Serilog.AspNetCore
+FsToolkit.ErrorHandling
+FsToolkit.ErrorHandling.TaskResult
+
+
+File:FsLibLog.fs
+

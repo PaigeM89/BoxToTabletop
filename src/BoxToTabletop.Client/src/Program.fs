@@ -66,7 +66,7 @@ let settingsMsgToCmd msg =
         printfn "none lol"
         Cmd.none
 
-let elmishUpdate (msg : Msg) (model : Model) : (Model * Cmd<Msg>)=
+let update (msg : Msg) (model : Model) : (Model * Cmd<Msg>)=
     match msg with
     | Start ->
         model, Cmd.none
@@ -87,15 +87,13 @@ let elmishUpdate (msg : Msg) (model : Model) : (Model * Cmd<Msg>)=
         | p, Project.Noop -> model, settingsMsgToCmd p
         | p1, p2 -> model, [ projectMsgToCmd p2; settingsMsgToCmd p1 ] |> Cmd.batch
 
-
-
 let init () =
     printfn "in init"
     Model.Empty(), Cmd.ofMsg Start
 
 Program.mkProgram
     init
-    elmishUpdate
+    update
     view
 |> Program.withConsoleTrace
 |> Program.withReactBatched "root"

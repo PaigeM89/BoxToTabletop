@@ -3,24 +3,33 @@ module BoxToTabletop.DbTypes
 open System
 
 type Unit = {
-    Id : Guid
-    ProjectId : Guid
-    Name : string
-    Models : int
-    Assembled : int
-    Primed : int
-    Painted : int
-    Based : int
+    id : Guid
+    project_id : Guid
+    name : string
+    models : int
+    assembled : int
+    primed : int
+    painted : int
+    based : int
 } with
     static member FromDomainType (projId : Guid) (unit : Domain.Types.Unit) : Unit =
         {
-            Id = unit.Id
-            ProjectId = projId
-            Name = unit.Name
-            Models = unit.Models
-            Assembled = unit.Assembled
-            Primed = unit.Primed
-            Painted = unit.Painted
-            Based = unit.Based
+            id = unit.Id
+            project_id = projId
+            name = unit.Name
+            models = unit.Models
+            assembled = unit.Assembled
+            primed = unit.Primed
+            painted = unit.Painted
+            based = unit.Based
         }
 
+    member this.ToDomainType() : Domain.Types.Unit = {
+        Domain.Types.Unit.Id = this.id
+        Name = this.name
+        Models = this.models
+        Assembled = this.assembled
+        Primed = this.primed
+        Painted = this.painted
+        Based = this.based
+    }

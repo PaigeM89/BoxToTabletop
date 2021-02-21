@@ -17,6 +17,8 @@ open Fake.Api
 open Fake.BuildServer
 open Fantomas
 open Fantomas.FakeHelpers
+open System.Text.RegularExpressions
+
 
 BuildServer.install [
     AppVeyor.Installer
@@ -342,6 +344,19 @@ let deleteChangelogBackupFile _ =
     if String.isNotNullOrEmpty changelogBackupFilename then
         Shell.rm changelogBackupFilename
 
+let fslibLogGlobs = !! "paket-files/TheAngryByrd/FsLibLog/**/FsLibLog*.fs"
+
+let replacements =
+    [ "FsLibLog\\n", "BoxToTabletop\n"
+      "FsLibLog\\.", "BoxToTabletop." ]
+
+let ``ReplaceTemplateFilesNamespace should run`` = lazy (
+  let files =
+    fslibLogGlobs
+    |> Seq.map(IO.File.ReadAllText)
+  files |> Seq.exists(fun f -> replacements |> Seq.exists(fun (strToReplace, _) -> Regex.IsMatch(f, strToReplace)))
+)
+
 let dotnetBuild ctx =
     let args =
         [
@@ -421,7 +436,7 @@ let watchApp _ =
 
     let appArgs =
         [
-            "World"
+            "--run"
         ]
         |> String.concat " "
     dotnet.watch
@@ -569,6 +584,14 @@ let formatCode _ =
 // Target Declaration
 //-----------------------------------------------------------------------------
 
+Target.create "ReplaceTemplateFilesNamespace" <| fun _ ->
+  if ``ReplaceTemplateFilesNamespace should run``.Value then
+    fslibLogGlobs  |> Seq.iter(Trace.tracefn "Replacing namespaces in %s")
+    replacements
+    |> List.iter (fun (``match``, replace) ->
+      Shell.regexReplaceInFilesWithEncoding ``match`` replace System.Text.Encoding.UTF8 (fslibLogGlobs)
+)
+
 Target.create "Clean" clean
 Target.create "DotnetRestore" dotnetRestore
 Target.create "UpdateChangelog" updateChangelog
@@ -608,7 +631,11 @@ Target.create "Release" ignore
 "UpdateChangelog" ?=> "AssemblyInfo"
 "UpdateChangelog" ==> "GitRelease"
 
+"ReplaceTemplateFilesNamespace"
+    ==> "DotnetBuild"
+
 "DotnetRestore"
+    ==> "ReplaceTemplateFilesNamespace"
     ==> "DotnetBuild"
     ==> "FSharpAnalyzers"
     ==> "DotnetTest"
