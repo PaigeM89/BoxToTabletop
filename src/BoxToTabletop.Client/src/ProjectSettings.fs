@@ -2,6 +2,7 @@ namespace BoxToTabletop.Client
 
 open BoxToTabletop.Domain.Types
 open Fulma
+open Elmish
 
 open BoxToTabletop.Domain
 
@@ -62,13 +63,13 @@ module ProjectSettings =
         match update with
         | Core.ColumnSettingsChange _ ->
             // this component is the one that updates this setting; we don't need to handle it.
-            model, Noop
+            model,  Cmd.none
 
     let update (model : Model) (msg : Msg) =
         match msg with
-        | Noop -> model, Noop
+        | Noop -> model, Cmd.none
         | CoreUpdate coreUpdate ->
             handleCoreUpdate coreUpdate model
-        | UpdateName name -> {model with Name = name}, Noop
+        | UpdateName name -> {model with Name = name},  Cmd.none
         | UpdatedColumnSettings settings ->
-            { model with ColumnSettings = settings }, Core.ColumnSettingsChange settings |> CoreUpdate
+            { model with ColumnSettings = settings }, Core.ColumnSettingsChange settings |> CoreUpdate |> Cmd.ofMsg

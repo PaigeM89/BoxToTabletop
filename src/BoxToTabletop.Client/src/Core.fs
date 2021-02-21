@@ -2,7 +2,7 @@ namespace BoxToTabletop.Client
 
 open BoxToTabletop.Domain
 open BoxToTabletop.Domain.Types
-
+open System
 module Core =
 
     type Updates =

@@ -72,20 +72,24 @@ let update (msg : Msg) (model : Model) : (Model * Cmd<Msg>)=
         model, Cmd.none
     | ProjectMsg projectMsg ->
         let project', cmd = Project.update model.Project projectMsg
-        { model with Project = project' }, projectMsgToCmd cmd
+        { model with Project = project' }, Cmd.map ProjectMsg cmd
     | ProjectSettingsMsg settingsMsg ->
-        let project', projmsg = ProjectSettings.update model.ProjectSettings settingsMsg
-        { model with ProjectSettings = project' }, settingsMsgToCmd projmsg
+        let project', cmd = ProjectSettings.update model.ProjectSettings settingsMsg
+        { model with ProjectSettings = project' }, Cmd.map ProjectSettingsMsg cmd
     | Core msg'->
         printfn "handling core update in active state"
         let settings, cmd' = ProjectSettings.update model.ProjectSettings (ProjectSettings.CoreUpdate msg')
         let project, cmd'' = Project.update model.Project (Project.CoreUpdate msg')
         let model = { model with Project = project; ProjectSettings = settings }
-        match cmd', cmd'' with
-        | ProjectSettings.Noop, Project.Noop ->  model , Cmd.none
-        | ProjectSettings.Noop, p -> model, projectMsgToCmd p
-        | p, Project.Noop -> model, settingsMsgToCmd p
-        | p1, p2 -> model, [ projectMsgToCmd p2; settingsMsgToCmd p1 ] |> Cmd.batch
+        model, [
+            (Cmd.map ProjectSettingsMsg cmd')
+            (Cmd.map ProjectMsg cmd'')
+        ] |> Cmd.batch
+//        match cmd', cmd'' with
+//        | ProjectSettings.Noop, Project.Noop ->  model , Cmd.none
+//        | ProjectSettings.Noop, p -> model, projectMsgToCmd p
+//        | p, Project.Noop -> model, settingsMsgToCmd p
+//        | p1, p2 -> model, [ projectMsgToCmd p2; settingsMsgToCmd p1 ] |> Cmd.batch
 
 let init () =
     printfn "in init"

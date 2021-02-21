@@ -84,6 +84,8 @@ module Project =
     | UpdateUnitModelCount of newCount : int
     | UpdatePartialData of newPartial : PartialData
     | AddUnit
+    | AddUnitSuccess of string
+    | AddUnitFailure of exn
     | DeleteRow of id : Guid option
 
     module View =
@@ -93,15 +95,15 @@ module Project =
         open Fable.React.Props
         //https://github.com/fable-compiler/fable-react/blob/master/src/Fable.React.Standard.fs
 
-        let addUnitWrapper elements =
-            div [ ClassName "Block"  ] [ Box.box' [ ] [
+        let addUnitWrapper custom elements =
+            div [ ClassName "Block"  ] [ Box.box' custom [
                 Level.level [ Level.Level.CustomClass "no-flex-shrink" ] [
                     Level.item [ Level.Item.HasTextCentered; Level.Item.CustomClass "no-flex-shrink" ] [ div [] elements ]
                 ]
             ]]
 
 
-        let numericInput inputColor name (dv : int) action  addAllBtn addAllBtnAction =
+        let numericInput inputColor name (dv : int) action =
             printfn "rendering numeric input for %s with value %i" name dv
             let numberInput =
                 Input.number [
@@ -114,20 +116,11 @@ module Project =
                     Input.CustomClass "numeric-input-width"
                 ]
 
-            addUnitWrapper [
+            addUnitWrapper [] [
                 Level.heading [] [ str name ]
                 Field.div [ Field.HasAddonsRight] [
                     Level.item [ Level.Item.CustomClass "no-flex-shrink" ] [
                         numberInput
-                        //todo: make this button match height
-                        // todo: determine if we really want this (messes up tabbing)
-//                        if addAllBtn then
-//                            Button.button [
-//                                Button.Color IsInfo
-//                                Button.IsLight
-//                                Button.Size IsSmall
-//                                Button.OnClick addAllBtnAction
-//                            ] [ str "All" ]
                     ]
                 ]
             ]
@@ -145,7 +138,7 @@ module Project =
                         ]
                     ]
                 ]
-            ] |> List.singleton |> addUnitWrapper
+            ] |> List.singleton |> addUnitWrapper []
 
         let inputNewUnit cs partial dispatch =
             printfn "rendering new unit input with settings %A and partial %A" cs partial
@@ -156,21 +149,21 @@ module Project =
             let inputColor =
                 if partial.ShowError then IsDanger else NoColor
                 |> Input.Color
-
-            let tempActn = fun _ -> ()
             Level.level [ ] [
-                Field.div [ Field.HasAddonsRight ] [
                 unitNameInput inputColor partial dispatch
-                numericInput inputColor "Models" partial.ModelCount (fun ev -> func ev (fun p c -> { p with ModelCount = c })) false tempActn
-                if cs.AssemblyVisible then numericInput inputColor "Assembled" partial.AssembledCount (fun ev -> func ev (fun p c -> { p with AssembledCount = c })) true tempActn
-                if cs.PrimedVisible then numericInput inputColor "Primed" partial.PrimedCount (fun ev -> func ev (fun p c -> { p with PrimedCount = c })) true tempActn
-                if cs.PaintedVisible then numericInput inputColor "Painted" partial.PaintedCount (fun ev -> func ev (fun p c -> { p with PaintedCount = c })) true tempActn
-                if cs.BasedVisible then numericInput inputColor "Based" partial.BasedCount (fun ev -> func ev (fun p c -> { p with BasedCount = c })) true tempActn
-                //todo: make this button match height and/or center it and/or "add" / "+" or just make it not ugly thanks
-                Button.Input.submit [ Button.Props [ Value "Add" ]; Button.Color IsSuccess; Button.OnClick (fun _ -> AddUnit |> dispatch) ]
+                numericInput inputColor "Models" partial.ModelCount (fun ev -> func ev (fun p c -> { p with ModelCount = c }))
+                if cs.AssemblyVisible then numericInput inputColor "Assembled" partial.AssembledCount (fun ev -> func ev (fun p c -> { p with AssembledCount = c }))
+                if cs.PrimedVisible then numericInput inputColor "Primed" partial.PrimedCount (fun ev -> func ev (fun p c -> { p with PrimedCount = c }))
+                if cs.PaintedVisible then numericInput inputColor "Painted" partial.PaintedCount (fun ev -> func ev (fun p c -> { p with PaintedCount = c }))
+                if cs.BasedVisible then numericInput inputColor "Based" partial.BasedCount (fun ev -> func ev (fun p c -> { p with BasedCount = c }))
+                addUnitWrapper [  CustomClass "add-unit-button-box" ] [
+                    Button.Input.submit [
+                        Button.Props [ Value "Add" ]
+                        Button.Color IsSuccess
+                        Button.OnClick (fun _ -> AddUnit |> dispatch)
+                    ]
                 ]
             ]
-
 
         let unitRow (cs : ColumnSettings) (unit : Unit) dispatch =
             let optionalColumns = [
@@ -222,31 +215,43 @@ module Project =
     let handleCoreUpdate (update : Core.Updates) (model : Model) =
         match update with
         | Core.ColumnSettingsChange cs ->
-            { model with ColumnSettings = cs }, Noop
+            { model with ColumnSettings = cs }, Cmd.none
 
+    let saveUnit (unit : Unit) = async {
+        do! Async.Sleep 1000
 
-    let update (model : Model) (msg : Msg) : (Model * Msg) =
+        return (sprintf "database updated, saved unit %A" unit.Name)
+    }
+
+    let update (model : Model) (msg : Msg) =
         match msg with
-        | Noop -> model, Noop
+        | Noop -> model, Cmd.none
         | CoreUpdate update ->
             printfn "handling core update in project"
             handleCoreUpdate update model
         | UpdateUnitName newName ->
-            { model with PartialData = { model.PartialData with UnitName = newName } }, Noop
+            { model with PartialData = { model.PartialData with UnitName = newName } }, Cmd.none
         | UpdateUnitModelCount newCount ->
-            { model with PartialData = { model.PartialData with ModelCount = newCount } }, Noop
+            { model with PartialData = { model.PartialData with ModelCount = newCount } }, Cmd.none
         | UpdatePartialData newPartial ->
-            { model with PartialData = newPartial }, Noop
+            { model with PartialData = newPartial }, Cmd.none
         | AddUnit ->
             let p = model.PartialData
             if p.IsValid() then
                 let unit = p.ToUnit()
-                model |> Model.clearAndAddUnit unit, Noop
+                let cmd = Cmd.OfAsync.either saveUnit unit AddUnitSuccess AddUnitFailure
+                model |> Model.clearAndAddUnit unit, cmd
             else
-                model |> Model.markShowErrors true, Noop
+                model |> Model.markShowErrors true, Cmd.none
+        | AddUnitSuccess successMsg ->
+            printfn "%s" successMsg
+            model, Cmd.none
+        | AddUnitFailure err ->
+            printfn "%A" err
+            model, Cmd.none
         | DeleteRow (Some id) ->
-                model |> Model.removeRowById id, Noop
+                model |> Model.removeRowById id, Cmd.none
         | DeleteRow (None) ->
                 printfn "Unable to delete row without ID"
-                model, Noop
+                model, Cmd.none
 

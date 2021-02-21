@@ -9,3 +9,13 @@
 .list-units-table {
     column-span: all;
 }
+
+.add-unit-box {
+    padding: 10px 10px 20px !important;
+}
+
+.add-unit-button-box {
+    -webkit-box-shadow: none !important;
+    box-shadow: none !important;
+    margin-left: 1px;
+}
