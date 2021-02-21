@@ -111,11 +111,11 @@ module Main =
                 | Favorite_Color _ -> "Favorite color"
                 | Run -> "Run the server"
 
-    let createDependencies (createConnection : unit -> Npgsql.NpgsqlConnection) =
+    let createDependencies (createConnection : unit -> System.Data.IDbConnection) =
         {
-            //Handlers.Dependencies.createConnection =  createConnection
-            Handlers.Dependencies.loadAllUnits = Repository.loadUnits (createConnection())
-            Handlers.Dependencies.saveUnit = Repository.insertUnit (createConnection())
+            Handlers.Dependencies.createConnection = createConnection
+            Handlers.Dependencies.loadAllUnits = Repository.loadUnits
+            Handlers.Dependencies.saveUnit = Repository.insertUnit
         }
 
 

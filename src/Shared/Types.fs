@@ -44,6 +44,9 @@ module Types =
                     }
                 )
 
+        static member DecodeMany : Decoder<Unit list> =
+            Decode.list Unit.Decoder
+
         static member Encoder (unit : Unit) =
             Encode.object
                 [

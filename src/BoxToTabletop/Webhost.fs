@@ -59,19 +59,20 @@ module Handlers =
             | Core.Ok model  -> return! successhandler model next ctx
     }
 
-    type CreateConn = unit -> Npgsql.NpgsqlConnection
+    type CreateConn = unit -> System.Data.IDbConnection //Npgsql.NpgsqlConnection
     type Dependencies = {
-        loadAllUnits : unit -> Task<Unit list>
-        saveUnit : DbTypes.Unit -> Task<Result<unit, string>>
+        createConnection : CreateConn
+        loadAllUnits : CreateConn -> Task<Unit list>
+        saveUnit : CreateConn -> DbTypes.Unit -> Task<Result<unit, string>>
     }
 
-    let listUnits (loader: unit -> Task<Unit list>) next ctx = task {
-        let! units = loader()
+    let listUnits (createConn : CreateConn) (loader: CreateConn -> Task<Unit list>) next ctx = task {
+        let! units = loader createConn
         return! json units next ctx
     }
 
-    let saveUnit (saver : DbTypes.Unit -> Task<Result<unit, string>>) unitToSave next ctx = task {
-        let! rowsAffected = saver (DbTypes.Unit.FromDomainType Guid.Empty unitToSave)
+    let saveUnit (createConn : CreateConn) (saver : CreateConn -> DbTypes.Unit -> Task<Result<unit, string>>) unitToSave next ctx = task {
+        let! rowsAffected = saver createConn (DbTypes.Unit.FromDomainType Guid.Empty unitToSave)
         match rowsAffected with
         | Ok _ ->
             let encoded = Domain.Types.Unit.Encoder unitToSave
@@ -91,8 +92,8 @@ module Handlers =
 
     let webApp (deps : Dependencies) =
         choose [
-            route "/units" >=> GET >=> listUnits deps.loadAllUnits
-            route "/units" >=> POST >=> tryBindModelAsync<Domain.Types.Unit> parsingErrorHandler (saveUnit deps.saveUnit)
+            route "/units" >=> GET >=> listUnits deps.createConnection deps.loadAllUnits
+            route "/units" >=> POST >=> tryBindModelAsync<Domain.Types.Unit> parsingErrorHandler (saveUnit deps.createConnection deps.saveUnit)
             route "/" >=> GET >=> htmlFile "index.html"
         ]
 

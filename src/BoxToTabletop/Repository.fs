@@ -10,9 +10,9 @@ open System.Threading.Tasks
 open FsToolkit.ErrorHandling
 open Npgsql.FSharp
 
-let createDbConnection (connstr : string) () =
+let createDbConnection (connstr : string) () : IDbConnection =
     let props : Sql.SqlProps = Sql.connect connstr
-    Npgsql.FSharp.Sql.createConnection props
+    Npgsql.FSharp.Sql.createConnection props :> IDbConnection
 
 let loadUnit (conn : IDbConnection) (id : Guid) () =
     select {
@@ -20,19 +20,19 @@ let loadUnit (conn : IDbConnection) (id : Guid) () =
         where (eq "id" id)
     } |> conn.SelectAsync<Unit>
 
-let loadUnits (conn : IDbConnection) () =
+let loadUnits (conn : unit -> IDbConnection) =
     select {
         table "units"
     }
-    |> conn.SelectAsync<Unit>
+    |> conn().SelectAsync<Unit>
     |> Task.map (List.ofSeq >> List.map (fun x -> x.ToDomainType()))
 
-let insertUnit (conn : IDbConnection) (unit : Unit) =
+let insertUnit (conn : unit -> IDbConnection) (unit : Unit) =
     insert {
         table "units"
         value unit
     }
-    |> conn.InsertAsync
+    |> conn().InsertAsync
     |> Task.map (fun r ->
         if r = 1 then Ok () else Error (sprintf "Wrong number of records inserted. Inserted %i records" r)
     )

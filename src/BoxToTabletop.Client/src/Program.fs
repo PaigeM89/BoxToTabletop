@@ -113,7 +113,8 @@ let handleProjectMsg (msg : Project.Msg) (model : Model) =
 let update (msg : Msg) (model : Model) : (Model * Cmd<Msg>)=
     match msg with
     | Start ->
-        model, Cmd.none
+        let loadUnitsCmd = Cmd.ofMsg (Project.Msg.LoadUnitsForProject System.Guid.Empty)
+        model, Cmd.map ProjectMsg loadUnitsCmd
     | ProjectMsg projectMsg ->
         let model, firstCmd = handleProjectMsg projectMsg model
         let project', projectCmd = Project.update model.Project projectMsg

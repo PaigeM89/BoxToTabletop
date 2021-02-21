@@ -26,3 +26,9 @@ module Promises =
         ]
         return! Fetch.post(url, data, decoder = decoder, headers = headers)
     }
+
+    let loadUnitsForProject (projectId : Guid) : Promise<Types.Unit list> = promise {
+        let url = "http://localhost:5000/units"
+        let decoder = Types.Unit.DecodeMany
+        return! Fetch.get(url, decoder = decoder)
+    }

@@ -63,7 +63,7 @@ module Project =
             }
             PartialData = PartialData.Init()
             ColumnSettings = ColumnSettings.Empty()
-            SaveError = Some "Test save error"
+            SaveError = None //Some "Test save error"
         }
 
     module Model =
@@ -82,6 +82,9 @@ module Project =
     type Msg =
     | Noop
     | CoreUpdate of update : BoxToTabletop.Client.Core.Updates
+    | LoadUnitsForProject of projectId : Guid
+    | LoadUnitsSuccess of units : Unit list
+    | LoadUnitsFailure of exn
     | UpdateUnitName of newName : string
     | UpdateUnitModelCount of newCount : int
     | UpdatePartialData of newPartial : PartialData
@@ -247,25 +250,7 @@ module Project =
         open Fetch
         open Thoth.Fetch
 
-//        let saveUnit (unit : Unit) = async {
-//            do! Async.Sleep 1000
-//
-//            let props = [
-//                RequestProperties.Method HttpMethod.POST
-//                RequestProperties.Body
-//            ]
-//
-//            let! response = fetch "localhost:5000/units" props |> Async.AwaitPromise
-////            if response.Ok then
-////                let! thing = response.json<string>() |> Async.AwaitPromise
-////                return Ok thing
-////            else
-////                let! errThing = response.json<string>() |> Async.AwaitPromise
-////                return Error errThing
-//            let! item = response.json<string>() |> Async.AwaitPromise
-//            return item
-//        }
-
+        let getUnits (projectId : Guid) = BoxToTabletop.Client.Promises.loadUnitsForProject projectId
         let saveUnit (unit : Unit) = BoxToTabletop.Client.Promises.createUnit unit
 
     let update (model : Model) (msg : Msg) =
@@ -274,6 +259,14 @@ module Project =
         | CoreUpdate update ->
             printfn "handling core update in project"
             handleCoreUpdate update model
+        | LoadUnitsForProject projectId ->
+            let unitsPromise = Fetching.getUnits projectId
+            model, Cmd.OfPromise.either Fetching.getUnits projectId LoadUnitsSuccess LoadUnitsFailure
+        | LoadUnitsSuccess units ->
+            { model with Project = { model.Project with Units = units } }, Cmd.none
+        | LoadUnitsFailure e ->
+            printfn "%A" e
+            { model with SaveError = Some (sprintf "Error loading: %A" e.Message) }, Cmd.none
         | UpdateUnitName newName ->
             { model with PartialData = { model.PartialData with UnitName = newName } }, Cmd.none
         | UpdateUnitModelCount newCount ->
