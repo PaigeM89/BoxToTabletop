@@ -50,12 +50,15 @@ module Project =
                 Based = this.BasedCount
         }
 
+    type AlertMessage =
+    | InfoMessage of msg : string
+    | ErrorMessage of msg : string
 
     type Model = {
         Project : Types.Project
         PartialData : PartialData
         ColumnSettings : ColumnSettings
-        SaveError : string option
+        SaveError : AlertMessage option
     } with
         static member Init() = {
             Project = {
@@ -92,7 +95,8 @@ module Project =
     | AddUnitSuccess of result : Types.Unit
     | AddUnitFailure of exn
     | DeleteRow of id : Guid option
-    | DeleteSaveError
+    | DeleteRowError of exn
+    | RemoveSaveErrorMessage
 
     module View =
         open Fable.React
@@ -185,17 +189,21 @@ module Project =
             ]
 
         let mapSaveError (model : Model) dispatch =
-            match model.SaveError with
-            | Some error ->
-                Message.message [ Message.Color IsDanger ] [
+            let structure color header message =
+                Message.message [ Message.Color color ] [
                     Message.header [] [
-                        str "Error"
-                        Delete.delete [ Delete.OnClick (fun _ -> dispatch DeleteSaveError) ] [ ]
+                        str header
+                        Delete.delete [ Delete.OnClick (fun _ -> dispatch RemoveSaveErrorMessage) ] [ ]
                     ]
                     Message.body [] [
-                        str (sprintf "There was an error saving: %s" error)
+                        str message
                     ]
-                ] |> Some
+                ]
+            match model.SaveError with
+            | Some (InfoMessage msg) ->
+                structure IsInfo "" msg |> Some
+            | Some (ErrorMessage msg) ->
+                structure IsDanger "Error" msg |> Some
             | None -> None
 
         let view (model : Model) (dispatch : Msg -> unit) =
@@ -241,6 +249,7 @@ module Project =
     let handleCoreUpdate (update : Core.Updates) (model : Model) =
         match update with
         | Core.ColumnSettingsChange cs ->
+            printfn "Updating column settings from %A to %A" model.ColumnSettings cs
             { model with ColumnSettings = cs }, Cmd.none
 
     module Fetching =
@@ -266,7 +275,7 @@ module Project =
             { model with Project = { model.Project with Units = units } }, Cmd.none
         | LoadUnitsFailure e ->
             printfn "%A" e
-            { model with SaveError = Some (sprintf "Error loading: %A" e.Message) }, Cmd.none
+            { model with SaveError = Some (sprintf "Error loading: %A" e.Message |> ErrorMessage) }, Cmd.none
         | UpdateUnitName newName ->
             { model with PartialData = { model.PartialData with UnitName = newName } }, Cmd.none
         | UpdateUnitModelCount newCount ->
@@ -286,12 +295,16 @@ module Project =
             { model with SaveError = None}, Cmd.none
         | AddUnitFailure err ->
             printfn "%A" err
-            model, Cmd.none
+            let addErr = sprintf "Error adding new unit: %A" err.Message |> ErrorMessage |> Some
+            { model with SaveError = addErr }, Cmd.none
         | DeleteRow (Some id) ->
-            model |> Model.removeRowById id, Cmd.none
+            model |> Model.removeRowById id, Cmd.OfPromise.attempt Promises.deleteUnit id DeleteRowError
         | DeleteRow (None) ->
             printfn "Unable to delete row without ID"
             model, Cmd.none
-        | DeleteSaveError ->
+        | DeleteRowError e ->
+            printfn "%A" e
+            { model with  SaveError = ErrorMessage "Error deleting unit" |> Some }, Cmd.none
+        | RemoveSaveErrorMessage ->
             { model with SaveError = None }, Cmd.none
 

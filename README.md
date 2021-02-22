@@ -2,6 +2,14 @@
 
 This project helps you log & track your model backlog, from building through painting and being tabletop ready. If you have a pile of boxes or a collection of sprues, this project helps you manage that madness and watch your progress as you work through it.
 
+todo:
+* handle row deletion
+* make in-table edits work
+* save projects
+* projects & categories
+* table ordered by priority / table sorting
+* batch events to send to avoid overhwelming the server
+
 ---
 
 ## Builds

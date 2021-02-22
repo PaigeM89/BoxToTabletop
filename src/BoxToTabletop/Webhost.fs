@@ -64,6 +64,7 @@ module Handlers =
         createConnection : CreateConn
         loadAllUnits : CreateConn -> Task<Unit list>
         saveUnit : CreateConn -> DbTypes.Unit -> Task<Result<unit, string>>
+        deleteUnit : CreateConn -> Guid -> Task<int>
     }
 
     let listUnits (createConn : CreateConn) (loader: CreateConn -> Task<Unit list>) next ctx = task {
@@ -84,6 +85,20 @@ module Handlers =
             return! setStatusCode 500 next ctx
     }
 
+    let deleteUnit (createConn : CreateConn) (deleter : CreateConn -> Guid -> Task<int>) idToDelete next ctx = task {
+        let! res = deleter createConn idToDelete
+        if res = 1 then
+//        match res with
+//        | Ok _ ->
+            return! Successful.NO_CONTENT next ctx
+//        | Error e ->
+//            !! "Error deleting unit: {err}"
+//            >>!- ("err", e)
+//            |> logger.error
+        else
+            return! ServerErrors.INTERNAL_ERROR "Error deleting unit" next ctx
+    }
+
     let parsingErrorHandler (err : string) next ctx =
         !! "Error parsing json from request. Error: {err}"
         >>!- ("err", err)
@@ -92,8 +107,9 @@ module Handlers =
 
     let webApp (deps : Dependencies) =
         choose [
-            route "/units" >=> GET >=> listUnits deps.createConnection deps.loadAllUnits
-            route "/units" >=> POST >=> tryBindModelAsync<Domain.Types.Unit> parsingErrorHandler (saveUnit deps.createConnection deps.saveUnit)
+            routeCix "/units(/?)" >=> GET >=> listUnits deps.createConnection deps.loadAllUnits
+            routeCix "/units(/?)" >=> POST >=> tryBindModelAsync<Domain.Types.Unit> parsingErrorHandler (saveUnit deps.createConnection deps.saveUnit)
+            DELETE >=> routeCif "/units/%O" (fun id -> deleteUnit deps.createConnection deps.deleteUnit id)
             route "/" >=> GET >=> htmlFile "index.html"
         ]
 

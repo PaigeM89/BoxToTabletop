@@ -72,4 +72,5 @@ module ProjectSettings =
             handleCoreUpdate coreUpdate model
         | UpdateName name -> {model with Name = name},  Cmd.none
         | UpdatedColumnSettings settings ->
-            { model with ColumnSettings = settings }, Core.ColumnSettingsChange settings |> CoreUpdate |> Cmd.ofMsg
+            printfn "in settings handler, new settings are %A" settings
+            { model with ColumnSettings = settings }, Cmd.none

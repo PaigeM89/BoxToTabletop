@@ -116,6 +116,7 @@ module Main =
             Handlers.Dependencies.createConnection = createConnection
             Handlers.Dependencies.loadAllUnits = Repository.loadUnits
             Handlers.Dependencies.saveUnit = Repository.insertUnit
+            Handlers.Dependencies.deleteUnit = Repository.deleteUnit
         }
 
 

@@ -32,3 +32,9 @@ module Promises =
         let decoder = Types.Unit.DecodeMany
         return! Fetch.get(url, decoder = decoder)
     }
+
+
+    let deleteUnit (unitId : Guid) : Promise<unit> = promise {
+        let url = (sprintf "http://localhost:5000/units/%O" unitId)
+        return! Fetch.delete(url)
+    }

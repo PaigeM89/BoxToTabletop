@@ -43,3 +43,9 @@ let updateUnit (conn : IDbConnection) (unit : Unit) =
         set unit
         where (eq "Id" unit.id)
     } |> conn.UpdateAsync
+
+let deleteUnit (conn : unit -> IDbConnection) (id : Guid) =
+    delete {
+        table "units"
+        where (eq "id" id)
+    } |> conn().DeleteAsync

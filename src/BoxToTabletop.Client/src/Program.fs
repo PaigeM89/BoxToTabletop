@@ -11,6 +11,7 @@ open FSharp.Control
 open Fulma
 
 open BoxToTabletop.Client
+open Fulma
 
 type Model = {
     Project : Project.Model
@@ -111,6 +112,7 @@ let handleProjectMsg (msg : Project.Msg) (model : Model) =
     | _ -> model, Cmd.none
 
 let update (msg : Msg) (model : Model) : (Model * Cmd<Msg>)=
+    printfn "in root update for msg %A" msg
     match msg with
     | Start ->
         let loadUnitsCmd = Cmd.ofMsg (Project.Msg.LoadUnitsForProject System.Guid.Empty)
@@ -127,18 +129,15 @@ let update (msg : Msg) (model : Model) : (Model * Cmd<Msg>)=
                 [ c; firstCmd ] |> Cmd.batch
 
         { model with Project = project' }, cmd
+    | ProjectSettingsMsg (ProjectSettings.UpdatedColumnSettings cs) ->
+        // capture a ProjectSettings message and dispatch it manually, then collect the results
+        let project, cmd = Project.update model.Project (Project.CoreUpdate (Updates.ColumnSettingsChange cs))
+        let settings, settingsCmd = ProjectSettings.update model.ProjectSettings (ProjectSettings.UpdatedColumnSettings cs)
+        { model with Project = project; ProjectSettings = settings },
+            [ Cmd.map ProjectMsg cmd; Cmd.map ProjectSettingsMsg settingsCmd ] |> Cmd.batch
     | ProjectSettingsMsg settingsMsg ->
         let project', cmd = ProjectSettings.update model.ProjectSettings settingsMsg
         { model with ProjectSettings = project' }, Cmd.map ProjectSettingsMsg cmd
-    | Core msg'->
-        printfn "handling core update in active state"
-        let settings, cmd' = ProjectSettings.update model.ProjectSettings (ProjectSettings.CoreUpdate msg')
-        let project, cmd'' = Project.update model.Project (Project.CoreUpdate msg')
-        let model = { model with Project = project; ProjectSettings = settings }
-        model, [
-            (Cmd.map ProjectSettingsMsg cmd')
-            (Cmd.map ProjectMsg cmd'')
-        ] |> Cmd.batch
 
 let init () =
     printfn "in init"
