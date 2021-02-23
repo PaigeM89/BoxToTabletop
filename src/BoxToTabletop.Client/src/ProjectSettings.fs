@@ -1,6 +1,7 @@
 namespace BoxToTabletop.Client
 
 open BoxToTabletop.Domain.Types
+open Browser.Types
 open Fulma
 open Elmish
 open System
@@ -29,6 +30,10 @@ module ProjectSettings =
             ColumnSettings = Some project.ColumnSettings
             Config = config
         }
+
+    module Model =
+        let setProject m p =
+            { m with Project = Some p; ColumnSettings = Some p.ColumnSettings }
 
 
     type Msg =
@@ -73,19 +78,34 @@ module ProjectSettings =
             | None -> []
 
         let view (model : Model) dispatch =
+            let nameChangeFunc (ev : Event) =
+                match model.Project with
+                | Some proj ->
+                    { proj with Name = ev.Value } |> UpdateProject
+                | None ->
+                    //todo: maybe don't bother even rendering this if project is missing?
+                    { Types.Project.Empty() with Name = ev.Value } |> UpdateProject
+
             Panel.panel [] [
                 Panel.heading [] [ str "Project Settings" ]
                 Panel.Block.div [] [
-                    Input.text [ Input.Size IsMedium; Input.Placeholder "Project Name" ]
+                    Input.text [
+                        Input.Size IsMedium
+                        //Input.Placeholder "Project Name"
+                        match model.Project with
+                        | Some p -> Input.ValueOrDefault p.Name
+                        | None -> Input.Placeholder "Project Name"
+                        Input.OnChange (fun ev -> nameChangeFunc ev |> dispatch)
+                    ]
                 ]
                 yield! createCheckboxes model dispatch
             ]
 
-    let handleCoreUpdate (update : Core.Updates) (model :Model) =
-        match update with
-        | Core.ColumnSettingsChange _ ->
-            // this component is the one that updates this setting; we don't need to handle it.
-            model,  Cmd.none
+//    let handleCoreUpdate (update : Core.Updates) (model :Model) =
+//        match update with
+//        | Core.ColumnSettingsChange _ ->
+//            // this component is the one that updates this setting; we don't need to handle it.
+//            model,  Cmd.none
 
     module Fetching =
         open Fetch
@@ -104,6 +124,7 @@ module ProjectSettings =
 
 
     let update (model : Model) (msg : Msg) =
+        printfn "In project settings with msg %A" msg
         match msg with
         | Noop -> model, Cmd.none
         | MaybeLoadProject projectIdOpt ->
@@ -120,7 +141,8 @@ module ProjectSettings =
 //                let newProj = Project.Empty()
 //                { model with Project = Some newProj }, Cmd.ofMsg (ProjectLoaded newProj)
         | ProjectLoaded proj ->
-            { model with Project = Some proj }, Cmd.none
+            let mdl = Model.setProject model proj
+            mdl, Cmd.none
         | ProjectLoadFailed e ->
             printfn "%A" e
             model, Cmd.none

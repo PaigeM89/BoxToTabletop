@@ -19,6 +19,12 @@ type Model = {
         Config = Config.T.Default()
     }
 
+    static member Init(config : Config.T) = {
+        Projects = []
+        SelectedProject = None
+        Config = config
+    }
+
 type Msg =
 | LoadAllProjects
 | AllProjectsLoaded of projects : Project list

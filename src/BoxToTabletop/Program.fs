@@ -121,6 +121,8 @@ module Main =
             Routing.Dependencies.deleteUnit = Repository.deleteUnit
             Routing.Dependencies.loadAllProjects = Repository.loadAllProjects
             Routing.Dependencies.loadProject = Repository.loadProject
+            Routing.Dependencies.saveProject = Repository.saveProject
+            Routing.Dependencies.updateProject = Repository.updateProject
         }
 
 

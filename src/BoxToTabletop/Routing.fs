@@ -6,7 +6,7 @@ open Domain.Types
 open System.Threading
 open System.Threading.Tasks
 open FSharp.Control.Tasks.Affine
-open FsToolkit.ErrorHandling
+//open FsToolkit.ErrorHandling
 open System.Text
 open Giraffe
 open Microsoft.Extensions.Primitives
@@ -50,17 +50,28 @@ let tryBindModelAsync<'T>
         | Core.Ok model  -> return! successhandler model next ctx
 }
 
+
+
 type CreateConn = unit -> System.Data.IDbConnection
 type Conn = System.Data.IDbConnection
-
+type Loader<'a> = Conn -> Guid ->Task<'a option>
+type LoadAll<'a> = Conn -> Task<'a list>
+type Saver<'a> = Conn -> 'a -> Task<int>
+type Updater<'a> = Conn -> 'a -> Task<int>
 type Dependencies = {
     createConnection : CreateConn
     loadAllUnits : Conn -> Guid -> Task<Unit list>
     saveUnit : Conn -> DbTypes.Unit -> Task<Result<unit, string>>
     updateUnit : Conn -> DbTypes.Unit -> Task<int>
     deleteUnit : Conn -> Guid -> Guid -> Task<int>
-    loadAllProjects : Conn -> Task<Project list>
-    loadProject : Conn -> Guid -> Task<Project option>
+    loadAllProjects : LoadAll<Domain.Types.Project>
+    //Conn -> Task<Project list>
+    loadProject : Loader<Domain.Types.Project>
+    //Conn -> Guid -> Task<Project option>
+    saveProject : Saver<DbTypes.Project>
+    //Conn -> DbTypes.Project -> Task<int>
+    updateProject : Updater<DbTypes.Project>
+    //17Conn -> DbTypes.Project -> Task<int>
 }
 
 module Units =
@@ -71,14 +82,15 @@ module Units =
         |> logger.trace
         let conn = createConn()
         let! units = loader conn projId
-        return! json units next ctx
+        let encoded = units |> List.map Types.Unit.Encoder
+        return! Successful.OK encoded next ctx
     }
 
     let saveUnit (createConn : CreateConn) (saver : Conn -> DbTypes.Unit -> Task<Result<unit, string>>) projId next (ctx : HttpContext) = task {
         let conn = createConn()
         let! unitToSave = ctx.BindJsonAsync<Domain.Types.Unit>()
         let unitToSave = { unitToSave with ProjectId = projId }
-        let! rowsAffected = saver conn (DbTypes.Unit.FromDomainType Guid.Empty unitToSave)
+        let! rowsAffected = saver conn (DbTypes.Unit.FromDomainType unitToSave)
         match rowsAffected with
         | Ok _ ->
             let encoded = Domain.Types.Unit.Encoder unitToSave
@@ -94,7 +106,10 @@ module Units =
         let conn = createConn()
         let! unitToSave = ctx.BindJsonAsync<Domain.Types.Unit>()
         let unitToSave = { unitToSave with ProjectId = projectId ; Id = unitId }
-        let! rowsAffected = updater conn (DbTypes.Unit.FromDomainType Guid.Empty unitToSave)
+        !! "Unit to save is {unit} after setting project id to {p} and id to {i}"
+        >>!+ ("unit", unitToSave) >>!+ ("p", projectId) >>!+ ("i", unitId)
+        |> logger.info
+        let! rowsAffected = updater conn (DbTypes.Unit.FromDomainType unitToSave)
         if rowsAffected >= 1 then
             !! "Updated {count} rows when saving unit {unit}"
             >>!- ("count", rowsAffected) >>!+ ("unit", unitToSave)
@@ -119,19 +134,50 @@ module Units =
     }
 
 module Projects =
-    let listAllProjects (createConn : CreateConn) (loader: Conn -> Task<Project list>) next ctx = task {
+    open FSharp.Control.Tasks.V2
+
+    let listAllProjects (createConn : CreateConn) loader next ctx = task {
         let conn = createConn()
         let! projects = loader conn
-        return! json projects next ctx
+        let encoded = projects |> List.map Domain.Types.Project.Encoder
+        return! Successful.OK encoded next ctx
     }
 
-    let loadProject (createConn : CreateConn) (loader : Conn -> Guid -> Task<Project option>) projId next ctx = task {
+    let loadProject (createConn : CreateConn) loader projId next ctx = task {
         let conn = createConn()
         let! projectOpt = loader conn projId
         match projectOpt with
-        | Some p -> return! json p next ctx
-        //"Project was not found" 
-        | None -> return! Successful.NO_CONTENT next ctx
+        | Some p ->
+            let encoded = Domain.Types.Project.Encoder p
+            return! Successful.OK encoded next ctx
+        //"Project was not found"
+        | None ->
+            !! "project was not found for id {id}" >>!+ ("id", projId) |> logger.info
+            return! Successful.NO_CONTENT next ctx
+    }
+
+    let updateProject (createConn : CreateConn) loader saver updater projId next (ctx : HttpContext) = task {
+        let conn = createConn()
+        let! projectToSave = ctx.BindJsonAsync<Domain.Types.Project>()
+        let encoded = Domain.Types.Project.Encoder projectToSave
+        let decoded = DbTypes.Project.FromDomainType projectToSave
+        let! existing = loader conn projId
+        match existing with
+        | Some p ->
+            !! "Project {proj} is being updated to {newproj}"
+            >>!+ ("proj", p)
+            >>!+ ("newproj", projectToSave)
+            |> logger.info
+            let! _ = updater conn decoded
+            let encoded = Domain.Types.Project.Encoder projectToSave
+            return! Successful.OK encoded next ctx
+        | None ->
+            !! "Project {proj} is being saved as new in the PUT endpoint"
+            >>!+ ("proj", projectToSave)
+            |> logger.info
+            let! _ = saver conn decoded
+            return! Successful.CREATED encoded next ctx
+
     }
 
 let parsingErrorHandler (err : string) next ctx =
@@ -148,5 +194,7 @@ let webApp (deps : Dependencies) =
         DELETE >=> routeCif (Routes.Project.UnitRoutes.DELETE()) (fun (projId, unitId) -> Units.deleteUnit deps.createConnection deps.deleteUnit projId unitId)
         GET >=> routeCi Routes.Project.GETALL >=> Projects.listAllProjects deps.createConnection deps.loadAllProjects
         GET >=> routeCif (Routes.Project.GET()) (fun projId -> Projects.loadProject deps.createConnection deps.loadProject projId)
+        PUT >=> routeCif (Routes.Project.PUT()) (fun projId -> Projects.updateProject deps.createConnection deps.loadProject deps.saveProject deps.updateProject projId)
+        //PUT >=> routeCi (Routes.Project.PUT2) (fun projId -> Projects.updateProject deps.createConnection deps.loadProject deps.saveProject deps.updateProject projId)
         route "/" >=> GET >=> htmlFile "index.html"
     ]

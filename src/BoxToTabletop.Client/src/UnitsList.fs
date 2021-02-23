@@ -83,7 +83,9 @@ module UnitsList =
             { model with Units = model.Units |> List.sortBy (fun x -> x.Priority) }
 
         let addUnit (unit : Unit) ( model : Model) =
+            let unit = { unit with ProjectId = model.ProjectId }
             let units = model.Units |> List.map (fun x -> { x with Priority = x.Priority + 1 })
+            printfn "model project id when adding unit is %A" model.ProjectId
             let units = unit :: units
             unit, { model with Units = units }
 
@@ -108,12 +110,9 @@ module UnitsList =
 
     type Msg =
     | Noop
-    | CoreUpdate of update : BoxToTabletop.Client.Core.Updates
     | LoadUnitsForProject of projectId : Guid
     | LoadUnitsSuccess of units : Unit list
     | LoadUnitsFailure of exn
-//    | UpdatePartialUnitName of newName : string
-//    | UpdatePartialUnitModelCount of newCount : int
     | UpdatePartialData of newPartial : PartialData
     | AddUnit
     | AddUnitSuccess of result : Types.Unit
@@ -124,6 +123,7 @@ module UnitsList =
     | DeleteRow of id : Guid option
     | DeleteRowError of exn
     | RemoveSaveErrorMessage
+    | UpdatedColumnSettings of cols : ColumnSettings
 
     module View =
         open Fable.React
@@ -232,7 +232,6 @@ module UnitsList =
                     Input.input [ Input.ValueOrDefault unit.Name ]
                 ]
                 td [] [
-                    //Input.input [ Input.ValueOrDefault (string unit.Models) ]
                     numericInput (Input.Color NoColor) (unit.Id.ToString() + "-models") unit.Models modelCountFunc
                 ]
                 yield! optionalColumns
@@ -274,7 +273,6 @@ module UnitsList =
                     th [] []
                 ]
 
-            //todo: make this able to edit in place
             let table =
                 [
                     yield tableHeaders
@@ -292,8 +290,6 @@ module UnitsList =
                     ]
                     Column.column [ Column.Width(Screen.All, Column.IsNarrow) ] [ ]
                 ]
-                //todo: play around with auto-saving all the time
-                //Button.button [] [ str "Save Changes" ]
             ]
 
     let handleCoreUpdate (update : Core.Updates) (model : Model) =
@@ -311,14 +307,14 @@ module UnitsList =
 
         let getUnits (model : Model) (projectId : Guid) =
             let model = { model with ProjectId = projectId }
+            printfn "Model project id is %A" model.ProjectId
             let promise projId = BoxToTabletop.Client.Promises.loadUnitsForProject model.Config projId
             let cmd = Cmd.OfPromise.either promise projectId LoadUnitsSuccess LoadUnitsFailure
             model, cmd
 
         let saveUnit (model : Model) (unit : Types.Unit) =
-            //let model = model |> Model.clearAndAddUnit unit
+            printfn "Model project id is %A" model.ProjectId
             let unit, model = model |> Model.clearPartialData |> Model.addUnit unit
-            //let unit, project = model.Project |> Project.addNewUnit unit
             let saveUnitFunc (unit' : Types.Unit) = BoxToTabletop.Client.Promises.createUnit model.Config unit'
             let promiseSave = Cmd.OfPromise.either saveUnitFunc unit AddUnitSuccess AddUnitFailure
             model |> Model.orderUnits, promiseSave
@@ -326,8 +322,7 @@ module UnitsList =
         /// Updates a unit in the project
         /// This function assumes Priority has not changed and a model will not change position.
         let updateUnit (model : Model) (unit : Types.Unit) =
-            //let updateUnitList = model.Project.Units |> List.filter (fun x -> x.Id <> unit.Id)
-            //let unit, project = model.Project |> Project.replaceUnitInPlace unit
+            printfn "unit project id in update is %A" unit.ProjectId
             let unit, model = Model.replaceUnitInPlace unit model
 
             let updateFunc (u : Types.Unit) = Promises.updateUnit model.Config u
@@ -335,7 +330,6 @@ module UnitsList =
             model, promiseUpdate
 
         let deleteUnit (model : Model) (unitId : Guid) =
-            //let updatedProject = model.Project |> Project.removeUnitById unitId |> Project.orderUnits
             let model = model |> Model.removeRowById unitId |> Model.orderUnits
             let deleteFunc id = Promises.deleteUnit model.Config model.ProjectId id
             let cmd = Cmd.OfPromise.attempt deleteFunc unitId DeleteRowError
@@ -345,13 +339,9 @@ module UnitsList =
     let update (model : Model) (msg : Msg) =
         match msg with
         | Noop -> model, Cmd.none
-        | CoreUpdate update ->
-            printfn "handling core update in project"
-            handleCoreUpdate update model
         | LoadUnitsForProject projectId ->
            Fetching.getUnits model projectId
         | LoadUnitsSuccess units ->
-            //{ model with Project = { model.Project with Units = units } }, Cmd.none
             { model with Units = units }, Cmd.none
         | LoadUnitsFailure e ->
             printfn "%A" e
@@ -394,4 +384,7 @@ module UnitsList =
             { model with  SaveError = ErrorMessage "Error deleting unit" |> Some }, Cmd.none
         | RemoveSaveErrorMessage ->
             { model with SaveError = None }, Cmd.none
+        | UpdatedColumnSettings cols ->
+            printfn "in units list project settings updated, cols %A" cols
+            { model with ColumnSettings = cols }, Cmd.none
 

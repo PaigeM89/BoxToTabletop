@@ -27,7 +27,7 @@ type Model = {
         //Project = Project.Model.Init(config)
         UnitsListModel = UnitsList.Model.Init(config)
         ProjectSettings = ProjectSettings.Model.Init(config)
-        ProjectsListModel = ProjectsList.Model.Empty()
+        ProjectsListModel = ProjectsList.Model.Init(config)
         ShowSpinner = false
         Config = config
         IsProjectSectionCollapsed = false
@@ -147,92 +147,74 @@ let settingsMsgToCmd msg =
         Cmd.none
 
 let handleProjectSettingsMsg (msg : ProjectSettings.Msg) (model : Model) =
-    match msg with
-    | ProjectSettings.ProjectLoaded proj ->
-        let projset = ProjectSettings.Model.InitFromProject model.Config proj
-        let model = { model with ShowSpinner = false; ProjectSettings = projset }
-        let cmd = UnitsList.Msg.LoadUnitsForProject proj.Id |> UnitsListMsg |> Cmd.ofMsg
-        model, cmd
-    | _ -> model, Cmd.none
+    let setMdl, setCmd = ProjectSettings.update model.ProjectSettings msg
+
+    let mdl, newCmd =
+        match msg with
+        | ProjectSettings.ProjectLoaded proj ->
+            let model = { model with ShowSpinner = false; }
+            let cmd = UnitsList.Msg.LoadUnitsForProject proj.Id |> UnitsListMsg |> Cmd.ofMsg
+            model, cmd
+        | ProjectSettings.UpdatedColumnSettings newProj ->
+            let cmd = UnitsList.Msg.UpdatedColumnSettings newProj |> UnitsListMsg |> Cmd.ofMsg
+            model, cmd
+        | _ -> model, Cmd.none
+
+    let cmds = [ (Cmd.map ProjectSettingsMsg setCmd); newCmd ] |> Cmd.batch
+    { mdl with ProjectSettings = setMdl }, cmds
+
 
 let handleUnitsListMsg (msg : UnitsList.Msg) (model : Model) =
-    match msg with
-    | UnitsList.UpdateUnitRow _
-    | UnitsList.AddUnit _ ->
-        { model with ShowSpinner = true }, Cmd.none
-    | UnitsList.AddUnitSuccess _
-    | UnitsList.AddUnitFailure _
-    | UnitsList.UpdateUnitSuccess _
-    | UnitsList.UpdateUnitFailure _ ->
-        { model with ShowSpinner  = false }, Cmd.none
-    | _ -> model, Cmd.none
+    let unitsMdl, unitsCmd = UnitsList.update model.UnitsListModel msg
+    let mdl,newMsg =
+        match msg with
+        | UnitsList.UpdateUnitRow _
+        | UnitsList.AddUnit _ ->
+            { model with ShowSpinner = true }, Cmd.none
+        | UnitsList.AddUnitSuccess _
+        | UnitsList.AddUnitFailure _
+        | UnitsList.UpdateUnitSuccess _
+        | UnitsList.UpdateUnitFailure _ ->
+            { model with ShowSpinner  = false }, Cmd.none
+        | _ -> model, Cmd.none
+
+    let cmds = [ (Cmd.map UnitsListMsg unitsCmd); newMsg ] |> Cmd.batch
+
+    { mdl with UnitsListModel = unitsMdl }, cmds
 
 let handleProjectsListMsg (msg : ProjectsList.Msg) (model : Model) =
-    match msg with
-    | ProjectsList.LoadAllProjects ->
-        { model with ShowSpinner = true }, Cmd.none
-    | ProjectsList.ProjectsLoadError _
-    | ProjectsList.AllProjectsLoaded _ ->
-        { model with ShowSpinner = false }, Cmd.none
-    | ProjectsList.DefaultProjectCreated proj ->
-        printfn "calling project lists update"
-        //let listMdl, projListCmd = ProjectsList.update model.ProjectsListModel msg
-        let settingsCmd = Cmd.ofMsg (ProjectSettings.Msg.ProjectLoaded proj) |> Cmd.map ProjectSettingsMsg
-        let cmds =
-            [
-                settingsCmd
-                //(Cmd.map ProjectsListMsg projListCmd)
-            ] |> Cmd.batch
-            // ProjectsListModel = listMdl
-        { model with ShowSpinner = false; }, cmds
+    let listMdl, listCmd = ProjectsList.update model.ProjectsListModel msg
+
+    let mdl, newMsg =
+        match msg with
+        | ProjectsList.LoadAllProjects ->
+            { model with ShowSpinner = true }, Cmd.none
+        | ProjectsList.ProjectsLoadError _
+        | ProjectsList.AllProjectsLoaded _ ->
+            { model with ShowSpinner = false }, Cmd.none
+        | ProjectsList.DefaultProjectCreated proj ->
+            printfn "calling project lists update"
+            let settingsCmd = Cmd.ofMsg (ProjectSettings.Msg.ProjectLoaded proj) |> Cmd.map ProjectSettingsMsg
+            { model with ShowSpinner = false; ProjectsListModel = listMdl }, settingsCmd
+        | ProjectsList.ProjectSelected proj ->
+            let cmd = Cmd.ofMsg (ProjectSettings.Msg.MaybeLoadProject (Some proj.Id)) |> Cmd.map ProjectSettingsMsg
+            { model with ShowSpinner = true }, cmd
+        | _ -> model, Cmd.none
+
+    let cmds = [ (Cmd.map ProjectsListMsg listCmd); newMsg ] |> Cmd.batch
+    { mdl with ProjectsListModel = listMdl }, cmds
 
 let update (msg : Msg) (model : Model) : (Model * Cmd<Msg>)=
     printfn "in root update for msg %A" msg
     match msg with
     | Start ->
-        //let loadProjectCmd = Cmd.ofMsg (ProjectSettings.Msg.LoadProjectOrNew None)
         let loadProjectsCmd = Cmd.ofMsg (ProjectsList.Msg.LoadAllProjects)
-        //let loadUnitsCmd = Cmd.ofMsg (Project.Msg.LoadUnitsForProject System.Guid.Empty)
         { model with ShowSpinner = true }, Cmd.map ProjectsListMsg loadProjectsCmd
     | UnitsListMsg unitsListMsg ->
-        let model, firstCmd = handleUnitsListMsg unitsListMsg model
-        let unitsListMdl, projectCmd = UnitsList.update model.UnitsListModel unitsListMsg
+        handleUnitsListMsg unitsListMsg model
+    | ProjectSettingsMsg projectSettingsMsg -> handleProjectSettingsMsg projectSettingsMsg model
+    | ProjectsListMsg projListMsg -> handleProjectsListMsg projListMsg model
 
-        let cmd =
-            if firstCmd.IsEmpty then
-                Cmd.map UnitsListMsg projectCmd
-            else
-                let c = Cmd.map UnitsListMsg projectCmd
-                [ c; firstCmd ] |> Cmd.batch
-
-        { model with UnitsListModel = unitsListMdl }, cmd
-    | ProjectSettingsMsg projectSettingsMsg ->
-        let model, firstCmd = handleProjectSettingsMsg projectSettingsMsg model
-        let settingsMdl, settingsCmd = ProjectSettings.update model.ProjectSettings projectSettingsMsg
-        let cmd =
-            if firstCmd.IsEmpty then
-                Cmd.map ProjectSettingsMsg settingsCmd
-            else
-                let c = Cmd.map ProjectSettingsMsg settingsCmd
-                [ c; firstCmd ] |> Cmd.batch
-        { model with ProjectSettings = settingsMdl }, cmd
-    | ProjectsListMsg projListMsg ->
-        let model, firstCmd = handleProjectsListMsg projListMsg model
-        let listMdl, listCmd = ProjectsList.update model.ProjectsListModel projListMsg
-        let cmd =
-            let c = Cmd.map ProjectsListMsg listCmd
-            [ c; firstCmd ] |> Cmd.batch
-        { model with ProjectsListModel = listMdl }, cmd
-//    | ProjectSettingsMsg (ProjectSettings.UpdatedColumnSettings cs) ->
-//        //let model, settingsCmd = handleProjectSettingsMsg msg
-//        // capture a ProjectSettings message and dispatch it manually, then collect the results
-//        //let project, cmd = UnitsList.update model.UnitsListModel (Project.CoreUpdate (Updates.ColumnSettingsChange cs))
-//        let settings, settingsCmd = ProjectSettings.update model.ProjectSettings (ProjectSettings.UpdatedColumnSettings cs)
-//        { model with Project = project; ProjectSettings = settings },
-//            [ Cmd.map ProjectMsg cmd; Cmd.map ProjectSettingsMsg settingsCmd ] |> Cmd.batch
-//    | ProjectSettingsMsg settingsMsg ->
-//        let project', cmd = ProjectSettings.update model.ProjectSettings settingsMsg
-//        { model with ProjectSettings = project' }, Cmd.map ProjectSettingsMsg cmd
 
 let init (url : string option) =
     printfn "in init"

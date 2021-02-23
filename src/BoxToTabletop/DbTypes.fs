@@ -13,10 +13,10 @@ type Unit = {
     based : int
     priority : int
 } with
-    static member FromDomainType (projId : Guid) (unit : Domain.Types.Unit) : Unit =
+    static member FromDomainType (unit : Domain.Types.Unit) : Unit =
         {
             id = unit.Id
-            project_id = projId
+            project_id = unit.ProjectId
             name = unit.Name
             models = unit.Models
             assembled = unit.Assembled

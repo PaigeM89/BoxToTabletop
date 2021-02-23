@@ -10,6 +10,19 @@ open System.Threading.Tasks
 open FsToolkit.ErrorHandling
 open Npgsql.FSharp
 
+//module IDbConnection =
+//    open System.Data
+//    open Dapper
+//    type LogFn = string * Map<string, obj> -> unit
+//
+//    let query1<'a> (this:IDbConnection) trans timeout (logFunction:LogFn option) (query, pars) =
+//        if logFunction.IsSome then (query, pars) |> logFunction.Value
+//        this.QueryAsync<'a>(query, pars, transaction = Option.toObj trans, commandTimeout = Option.toNullable timeout)
+//
+//type IDbConnection with
+//    member this.SelectPly<'a>(q:SelectQuery, ?trans:IDbTransaction, ?timeout: int, ?logfunction) = Ply.Ply. {
+//        return! q |> Deconstructor.select<'a> |> IDbConnection.query1<'a> this trans timeout logfunction
+//    }
 
 let createDbConnection (connstr : string) () : IDbConnection =
     let props : Sql.SqlProps = Sql.connect connstr
@@ -71,4 +84,16 @@ let loadProject (conn : IDbConnection) (id : Guid) =
     } |> conn.SelectAsync<Project>
     |> Task.map (List.ofSeq >> List.map (fun x -> x.ToDomainType()) >> List.tryHead)
 
+let saveProject (conn : IDbConnection) (project : DbTypes.Project) =
+    insert {
+        table "projects"
+        value project
+    }
+    |> conn.InsertAsync
 
+let updateProject (conn : IDbConnection) (project : DbTypes.Project) =
+    update {
+        table "projects"
+        set project
+        where (eq "id" project.id)
+    } |> conn.UpdateAsync

@@ -50,7 +50,7 @@ module Promises =
 
     let updateUnit (config : Config.T) (unit : Types.Unit) : Promise<Types.Unit> = promise {
         //let url = sprintf "http://localhost:5000/api/v1/units/%O" (unit.Id.ToString("N"))
-        let url = Project.UnitRoutes.PUT() |> buildRoute config <| unit.ProjectId
+        let url = Project.UnitRoutes.PUT() |> buildRoute2 config <| (unit.ProjectId, unit.Id)
         let data = Types.Unit.Encoder unit
         let headers = [
             HttpRequestHeaders.Origin "*"
@@ -85,7 +85,8 @@ module Promises =
     }
 
     let updateProject (config : Config.T) (project : Project) : Promise<Project> = promise {
-        let url = Project.PUT() |> buildRoute config <| project
+        let url = Project.PUT() |> buildRoute config <| project.Id
+        printfn "url to update project is %A" url
         let decoder = Types.Project.Decoder
         return! Fetch.put(url, project, decoder = decoder)
     }
