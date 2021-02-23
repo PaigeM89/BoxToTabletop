@@ -34,13 +34,16 @@ nuget Fable.FontAwesome
 nuget Fable.FontAwesome.Free
 nuget Fable.Elmish
 nuget Fable.Elmish.React
+nuget Fulma.Extensions.Wikiki.PageLoader
+nuget Fulma.Extensions.Wikiki.Divider
+nuget Fable.React
+nuget Fable.Promise
+nuget Fulma
+
 
 nuget FSharp.Control.AsyncRx ~> 1.6
 nuget Fable.Reaction ~> 3.5
-nuget Fable.React
-nuget Fable.Promise
 
-nuget Fulma
 
 #conflict resolution packages
 nuget System.Security.Permissions >= 5.0

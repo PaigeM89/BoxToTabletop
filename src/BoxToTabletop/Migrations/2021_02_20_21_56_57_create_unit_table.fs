@@ -18,8 +18,12 @@ type _2021_02_20_21_56_57_create_unit_table () =
             assembled INT,
             primed INT,
             painted INT,
-            based INT
+            based INT,
+            priority INT NOT NULL
         );
     """)
 
-  override __.Down () = ()
+  override __.Down () =
+      base.Execute.Sql("""
+    DROP TABLE units;
+""")

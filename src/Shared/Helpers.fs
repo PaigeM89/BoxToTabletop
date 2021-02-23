@@ -4,6 +4,7 @@ open System
 
 [<RequireQualifiedAccess>]
 module String =
+    open System.Text
     let stringsEqualCI val1 val2 =
         String.Compare(val1, val2, StringComparison.OrdinalIgnoreCase) = 0
 

@@ -3,14 +3,14 @@ namespace BoxToTabletop.Client
 open BoxToTabletop.Domain
 open BoxToTabletop.Domain.Helpers
 open BoxToTabletop.Domain.Types
+open Browser
+open Browser.Types
 open Elmish
 open System
 open FSharp.Control
 open Fulma
-open Fulma
-open Fulma
 
-module Project =
+module UnitsList =
     open FSharp.Control.AsyncRx
     open Fable.Reaction
 
@@ -55,32 +55,56 @@ module Project =
     | ErrorMessage of msg : string
 
     type Model = {
-        Project : Types.Project
+        //Project : Types.Project
+        ProjectId : Guid
+        Units : Types.Unit list
         PartialData : PartialData
         ColumnSettings : ColumnSettings
         SaveError : AlertMessage option
+        Config : Config.T
     } with
-        static member Init() = {
-            Project = {
-                Project.Empty() with Units = mockUnits
-            }
+        static member Init(config : Config.T) = {
+//            Project = {
+//                Project.Empty() with Units = mockUnits
+//            }
+            ProjectId = Guid.Empty
+            Units = []
             PartialData = PartialData.Init()
             ColumnSettings = ColumnSettings.Empty()
             SaveError = None //Some "Test save error"
+            Config = config
         }
 
     module Model =
-        let clearAndAddUnit unit model =
-            { model with
-                PartialData = PartialData.Init()
-                Project = { model.Project with Units = unit :: model.Project.Units }
-            }
+        let clearPartialData (model : Model) =
+            { model with PartialData = PartialData.Init() }
+
+        let orderUnits (model : Model) =
+            { model with Units = model.Units |> List.sortBy (fun x -> x.Priority) }
+
+        let addUnit (unit : Unit) ( model : Model) =
+            let units = model.Units |> List.map (fun x -> { x with Priority = x.Priority + 1 })
+            let units = unit :: units
+            unit, { model with Units = units }
 
         let markShowErrors flag model =
             { model with PartialData = { model.PartialData with ShowError = flag } }
 
-        let removeRowById (id : Guid) model =
-            { model with Project = { model.Project with Units = model.Project.Units |> List.filter (fun x -> x.Id <> id) } }
+        let removeRowById (id : Guid) (model : Model) =
+            { model with Units = model.Units |> List.filter (fun x -> x.Id <> id) }
+            //{ model with Project = { model.Project with Units = model.Project.Units |> List.filter (fun x -> x.Id <> id) } }
+
+        let replaceUnitInPlace (unit : Unit) (model : Model) =
+            let existing = model.Units |> List.tryFind (fun x -> x.Id = unit.Id)
+            match existing with
+            | Some e ->
+                let priority = e.Priority
+                let units = model.Units |> List.filter (fun x -> x.Id <> unit.Id)
+                let unit = { unit with Priority = priority }
+                let units = unit :: units
+                unit, { model with Units = units }
+            | None ->
+                addUnit unit model
 
     type Msg =
     | Noop
@@ -88,12 +112,15 @@ module Project =
     | LoadUnitsForProject of projectId : Guid
     | LoadUnitsSuccess of units : Unit list
     | LoadUnitsFailure of exn
-    | UpdateUnitName of newName : string
-    | UpdateUnitModelCount of newCount : int
+//    | UpdatePartialUnitName of newName : string
+//    | UpdatePartialUnitModelCount of newCount : int
     | UpdatePartialData of newPartial : PartialData
     | AddUnit
     | AddUnitSuccess of result : Types.Unit
     | AddUnitFailure of exn
+    | UpdateUnitRow of updatedUnit : Types.Unit
+    | UpdateUnitSuccess of updatedUnit : Types.Unit
+    | UpdateUnitFailure of exn
     | DeleteRow of id : Guid option
     | DeleteRowError of exn
     | RemoveSaveErrorMessage
@@ -113,30 +140,33 @@ module Project =
                 ]
             ]]
 
-
         let numericInput inputColor name (dv : int) action =
-            printfn "rendering numeric input for %s with value %i" name dv
-            let numberInput =
-                Input.number [
-                    Input.Id name
-                    Input.Placeholder (string 0)
-                    inputColor
-                    Input.ValueOrDefault (string dv)
-                    Input.OnChange action
-                    Input.Props [ HTMLAttr.Min 0; HTMLAttr.FrameBorder "1px solid";  ]
-                    Input.CustomClass "numeric-input-width"
-                ]
+            Input.number [
+                Input.Id name
+                Input.Placeholder (string 0)
+                inputColor
+                Input.ValueOrDefault (string dv)
+                Input.OnChange action
+                Input.Props [ HTMLAttr.Min 0; HTMLAttr.FrameBorder "1px solid";  ]
+                Input.CustomClass "numeric-input-width"
+            ]
 
+        let newUnitNumericInput inputColor name (dv : int) action =
             addUnitWrapper [] [
                 Level.heading [] [ str name ]
                 Field.div [ Field.HasAddonsRight] [
                     Level.item [ Level.Item.CustomClass "no-flex-shrink" ] [
-                        numberInput
+                        numericInput inputColor name dv action
                     ]
                 ]
             ]
 
         let unitNameInput inputColor partial dispatch =
+            let changeHandler (ev : Event) =
+                { partial with UnitName = ev.Value }
+                |> UpdatePartialData
+                |> dispatch
+
             Level.level [  Level.Level.Modifiers [  Modifier.Display (Screen.All, Fulma.Display.Option.Flex) ]; Level.Level.CustomClass "no-flex-shrink"] [
                 Level.item [ Level.Item.HasTextCentered; Level.Item.CustomClass "no-flex-shrink" ] [
                     div []  [
@@ -144,7 +174,7 @@ module Project =
                         Level.item [] [
                             Input.text [
                                 inputColor
-                                Input.Placeholder "Unit name"; Input.ValueOrDefault partial.UnitName; Input.OnChange (fun ev -> UpdateUnitName ev.Value |> dispatch)
+                                Input.Placeholder "Unit name"; Input.ValueOrDefault partial.UnitName; Input.OnChange changeHandler
                             ]
                         ]
                     ]
@@ -152,7 +182,6 @@ module Project =
             ] |> List.singleton |> addUnitWrapper []
 
         let inputNewUnit cs partial dispatch =
-            printfn "rendering new unit input with settings %A and partial %A" cs partial
             let func (ev : Browser.Types.Event) transform =
                 let c = Parsing.parseIntOrZero ev.Value
                 UpdatePartialData (transform partial c)
@@ -162,11 +191,11 @@ module Project =
                 |> Input.Color
             Level.level [ ] [
                 unitNameInput inputColor partial dispatch
-                numericInput inputColor "Models" partial.ModelCount (fun ev -> func ev (fun p c -> { p with ModelCount = c }))
-                if cs.AssemblyVisible then numericInput inputColor "Assembled" partial.AssembledCount (fun ev -> func ev (fun p c -> { p with AssembledCount = c }))
-                if cs.PrimedVisible then numericInput inputColor "Primed" partial.PrimedCount (fun ev -> func ev (fun p c -> { p with PrimedCount = c }))
-                if cs.PaintedVisible then numericInput inputColor "Painted" partial.PaintedCount (fun ev -> func ev (fun p c -> { p with PaintedCount = c }))
-                if cs.BasedVisible then numericInput inputColor "Based" partial.BasedCount (fun ev -> func ev (fun p c -> { p with BasedCount = c }))
+                newUnitNumericInput inputColor "Models" partial.ModelCount (fun ev -> func ev (fun p c -> { p with ModelCount = c }))
+                if cs.AssemblyVisible then newUnitNumericInput inputColor "Assembled" partial.AssembledCount (fun ev -> func ev (fun p c -> { p with AssembledCount = c }))
+                if cs.PrimedVisible then newUnitNumericInput inputColor "Primed" partial.PrimedCount (fun ev -> func ev (fun p c -> { p with PrimedCount = c }))
+                if cs.PaintedVisible then newUnitNumericInput inputColor "Painted" partial.PaintedCount (fun ev -> func ev (fun p c -> { p with PaintedCount = c }))
+                if cs.BasedVisible then newUnitNumericInput inputColor "Based" partial.BasedCount (fun ev -> func ev (fun p c -> { p with BasedCount = c }))
                 addUnitWrapper [  CustomClass "add-unit-button-box" ] [
                     Button.Input.submit [
                         Button.Props [ Value "Add" ]
@@ -177,13 +206,35 @@ module Project =
             ]
 
         let unitRow (cs : ColumnSettings) (unit : Unit) dispatch =
+            let changeHandler transform (ev : Browser.Types.Event)  =
+                let i = Parsing.parseIntOrZero ev.Value
+                UpdateUnitRow (transform unit i )
+                |> dispatch
+
+            let modelCountFunc (ev : Browser.Types.Event) = changeHandler (fun u i -> { u with Models = i }) ev
+            let assembledFunc  (ev : Browser.Types.Event) = changeHandler (fun u i -> { u with Assembled = i }) ev
+            let primedFunc  (ev : Browser.Types.Event) = changeHandler (fun u i -> { u with Primed = i }) ev
+            let paintedFunc  (ev : Browser.Types.Event) = changeHandler (fun u i -> { u with Painted = i }) ev
+            let basedFunc  (ev : Browser.Types.Event) = changeHandler (fun u i -> { u with Based = i }) ev
+
+            let nc = Input.Color NoColor
+            let unitId = unit.Id.ToString("N") + "-"
+
             let optionalColumns = [
-                for (name, value) in Unit.enumerateColumns cs unit ->
-                    td [] [ str (string value) ]
+                if cs.AssemblyVisible then td [] [numericInput nc (unitId + "assembled") unit.Assembled assembledFunc ]
+                if cs.PrimedVisible then td [] [numericInput nc (unitId + "primed") unit.Primed primedFunc ]
+                if cs.PaintedVisible then td [] [numericInput nc (unitId + "painted") unit.Painted paintedFunc ]
+                if cs.BasedVisible then td [] [numericInput nc (unitId + "based") unit.Based basedFunc ]
             ]
             tr [] [
-                td [] [ str unit.Name ]
-                td [] [ str (string unit.Models) ]
+                td [] [
+                    //todo: shrink this a little
+                    Input.input [ Input.ValueOrDefault unit.Name ]
+                ]
+                td [] [
+                    //Input.input [ Input.ValueOrDefault (string unit.Models) ]
+                    numericInput (Input.Color NoColor) (unit.Id.ToString() + "-models") unit.Models modelCountFunc
+                ]
                 yield! optionalColumns
                 td [] [ Delete.delete [ Delete.Size IsMedium; Delete.OnClick (fun _ -> unit.Id |> Some |> DeleteRow |> dispatch ) ] [ ] ]
             ]
@@ -207,19 +258,18 @@ module Project =
             | None -> None
 
         let view (model : Model) (dispatch : Msg -> unit) =
-            printfn "drawing project. columns are %A" model.ColumnSettings
             let saveError = mapSaveError model dispatch
 
-            let optionalColumns =
+            let optionalColumnHeaders =
                 [
                     for (name, value) in model.ColumnSettings.Enumerate() ->
-                        if value then td [] [ str name ] |> Some else None
+                        if value then th [] [ str name ] |> Some else None
                 ] |> List.choose id
             let tableHeaders =
                 tr [ Class "table" ] [
                     th [] [ str "Name" ]
                     th [] [ str "Models" ]
-                    yield! optionalColumns
+                    yield! optionalColumnHeaders
                     // add a blank header for the add/delete button column
                     th [] []
                 ]
@@ -228,7 +278,7 @@ module Project =
             let table =
                 [
                     yield tableHeaders
-                    for unit in model.Project.Units do yield unitRow model.ColumnSettings unit dispatch
+                    for unit in model.Units do yield unitRow model.ColumnSettings unit dispatch
                 ]
                 |> Table.table [ Table.IsBordered; Table.IsStriped; Table.IsNarrow; Table.IsHoverable; Table.CustomClass "list-units-table" ]
             Section.section [] [
@@ -259,8 +309,38 @@ module Project =
         open Fetch
         open Thoth.Fetch
 
-        let getUnits (projectId : Guid) = BoxToTabletop.Client.Promises.loadUnitsForProject projectId
-        let saveUnit (unit : Unit) = BoxToTabletop.Client.Promises.createUnit unit
+        let getUnits (model : Model) (projectId : Guid) =
+            let model = { model with ProjectId = projectId }
+            let promise projId = BoxToTabletop.Client.Promises.loadUnitsForProject model.Config projId
+            let cmd = Cmd.OfPromise.either promise projectId LoadUnitsSuccess LoadUnitsFailure
+            model, cmd
+
+        let saveUnit (model : Model) (unit : Types.Unit) =
+            //let model = model |> Model.clearAndAddUnit unit
+            let unit, model = model |> Model.clearPartialData |> Model.addUnit unit
+            //let unit, project = model.Project |> Project.addNewUnit unit
+            let saveUnitFunc (unit' : Types.Unit) = BoxToTabletop.Client.Promises.createUnit model.Config unit'
+            let promiseSave = Cmd.OfPromise.either saveUnitFunc unit AddUnitSuccess AddUnitFailure
+            model |> Model.orderUnits, promiseSave
+
+        /// Updates a unit in the project
+        /// This function assumes Priority has not changed and a model will not change position.
+        let updateUnit (model : Model) (unit : Types.Unit) =
+            //let updateUnitList = model.Project.Units |> List.filter (fun x -> x.Id <> unit.Id)
+            //let unit, project = model.Project |> Project.replaceUnitInPlace unit
+            let unit, model = Model.replaceUnitInPlace unit model
+
+            let updateFunc (u : Types.Unit) = Promises.updateUnit model.Config u
+            let promiseUpdate = Cmd.OfPromise.either updateFunc unit UpdateUnitSuccess UpdateUnitFailure
+            model, promiseUpdate
+
+        let deleteUnit (model : Model) (unitId : Guid) =
+            //let updatedProject = model.Project |> Project.removeUnitById unitId |> Project.orderUnits
+            let model = model |> Model.removeRowById unitId |> Model.orderUnits
+            let deleteFunc id = Promises.deleteUnit model.Config model.ProjectId id
+            let cmd = Cmd.OfPromise.attempt deleteFunc unitId DeleteRowError
+            model, cmd
+
 
     let update (model : Model) (msg : Msg) =
         match msg with
@@ -269,25 +349,21 @@ module Project =
             printfn "handling core update in project"
             handleCoreUpdate update model
         | LoadUnitsForProject projectId ->
-            let unitsPromise = Fetching.getUnits projectId
-            model, Cmd.OfPromise.either Fetching.getUnits projectId LoadUnitsSuccess LoadUnitsFailure
+           Fetching.getUnits model projectId
         | LoadUnitsSuccess units ->
-            { model with Project = { model.Project with Units = units } }, Cmd.none
+            //{ model with Project = { model.Project with Units = units } }, Cmd.none
+            { model with Units = units }, Cmd.none
         | LoadUnitsFailure e ->
             printfn "%A" e
             { model with SaveError = Some (sprintf "Error loading: %A" e.Message |> ErrorMessage) }, Cmd.none
-        | UpdateUnitName newName ->
-            { model with PartialData = { model.PartialData with UnitName = newName } }, Cmd.none
-        | UpdateUnitModelCount newCount ->
-            { model with PartialData = { model.PartialData with ModelCount = newCount } }, Cmd.none
         | UpdatePartialData newPartial ->
             { model with PartialData = newPartial }, Cmd.none
         | AddUnit ->
             let p = model.PartialData
             if p.IsValid() then
                 let unit = p.ToUnit()
-                let promiseSave = Cmd.OfPromise.either Fetching.saveUnit unit AddUnitSuccess AddUnitFailure
-                model |> Model.clearAndAddUnit unit, promiseSave
+                let model, promiseSave = Fetching.saveUnit model unit
+                model, promiseSave
             else
                 model |> Model.markShowErrors true, Cmd.none
         | AddUnitSuccess _ ->
@@ -297,8 +373,19 @@ module Project =
             printfn "%A" err
             let addErr = sprintf "Error adding new unit: %A" err.Message |> ErrorMessage |> Some
             { model with SaveError = addErr }, Cmd.none
+        | UpdateUnitRow unitToUpdate ->
+            printfn "Updating unit %A" unitToUpdate
+            let model, cmd = Fetching.updateUnit model unitToUpdate
+            model, cmd
+        | UpdateUnitSuccess _ ->
+            { model with SaveError = None }, Cmd.none
+        | UpdateUnitFailure err ->
+            printfn "%A" err
+            let updateErr = sprintf "Error updating unit: %A" err.Message |> ErrorMessage |> Some
+            { model with SaveError = updateErr }, Cmd.none
         | DeleteRow (Some id) ->
-            model |> Model.removeRowById id, Cmd.OfPromise.attempt Promises.deleteUnit id DeleteRowError
+            //model |> Model.removeRowById id, Cmd.OfPromise.attempt Promises.deleteUnit id DeleteRowError
+            Fetching.deleteUnit model id
         | DeleteRow (None) ->
             printfn "Unable to delete row without ID"
             model, Cmd.none

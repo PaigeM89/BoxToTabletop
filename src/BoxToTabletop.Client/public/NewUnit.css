@@ -19,3 +19,7 @@
     box-shadow: none !important;
     margin-left: 1px;
 }
+
+.collapse-button {
+    border: 0;
+}

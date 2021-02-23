@@ -111,12 +111,16 @@ module Main =
                 | Favorite_Color _ -> "Favorite color"
                 | Run -> "Run the server"
 
+    type CreateConn = unit -> System.Data.IDbConnection
     let createDependencies (createConnection : unit -> System.Data.IDbConnection) =
         {
-            Handlers.Dependencies.createConnection = createConnection
-            Handlers.Dependencies.loadAllUnits = Repository.loadUnits
-            Handlers.Dependencies.saveUnit = Repository.insertUnit
-            Handlers.Dependencies.deleteUnit = Repository.deleteUnit
+            Routing.Dependencies.createConnection = createConnection
+            Routing.Dependencies.loadAllUnits = Repository.loadUnits
+            Routing.Dependencies.saveUnit = Repository.insertUnit
+            Routing.Dependencies.updateUnit = Repository.updateUnit
+            Routing.Dependencies.deleteUnit = Repository.deleteUnit
+            Routing.Dependencies.loadAllProjects = Repository.loadAllProjects
+            Routing.Dependencies.loadProject = Repository.loadProject
         }
 
 
@@ -137,7 +141,7 @@ module Main =
             let deps = Repository.createDbConnection connstr |> createDependencies
             let host = BoxToTabletop.Webhost.buildHost config deps
 
-            let thing = host.Run()
+            let run = host.Run()
             ()
         else
             parser.PrintUsage() |> printfn "%s"

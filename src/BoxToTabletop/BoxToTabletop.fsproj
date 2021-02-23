@@ -31,6 +31,8 @@
     <Compile Include="Repository.fs" />
     <Compile Include="./Migrations/**/*.fs" />
     <Compile Include="MigrationRunner.fs" />
+    <Compile Include="../Shared/Routes.fs" />
+    <Compile Include="Routing.fs" />
     <Compile Include="Webhost.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>

@@ -2,13 +2,39 @@
 
 This project helps you log & track your model backlog, from building through painting and being tabletop ready. If you have a pile of boxes or a collection of sprues, this project helps you manage that madness and watch your progress as you work through it.
 
-todo:
-* handle row deletion
+MPV:
 * make in-table edits work
-* save projects
+    * make sure user doesn't lose active input box
+    * table ordered by priority / table sorting
+    * organize units by project
+    * consider a way to PUT (unitId, priority)
+        on any change.
+* save project settings
+* logins - google
+
+Requirements: 
 * projects & categories
-* table ordered by priority / table sorting
+    * page loader?
+    * switches
+* account settings
+    * quick view
+    * switches
+    * dark mode
+    * name (changeable)
 * batch events to send to avoid overhwelming the server
+* created & updated timestamps  
+* sharing links
+    * add friends
+    * set account private
+* stats
+    * by date, editable, with graphs
+* setting to not do individual counts each step
+* export to CSV
+* timelines w/ goals, show progress
+
+minor changes to make:
+* make add unit box thing collapsable
+* make project box thing collapsable
 
 ---
 
