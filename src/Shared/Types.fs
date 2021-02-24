@@ -162,36 +162,3 @@ module Types =
                 if cs.PaintedVisible then yield ("Painted", unit.Painted)
                 if cs.BasedVisible then yield ("Based", unit.Based)
             ]
-
-    module Project =
-        /// Adds a unit to a project's collection, then re-maps the priorities
-        /// This function assumes the unit being added is new or otherwise top priority
-        let addNewUnit (unit : Unit) (project : Project) =
-            let units =
-                project.Units
-                |> List.map (fun x -> { x with Priority = x.Priority + 1 })
-            let units = {unit with Priority = 0} :: units
-            unit, { project with Units = units }
-
-        let removeUnitById (unitId : Guid) (project : Project) =
-            let units = project.Units |> List.filter (fun x -> x.Id <> unitId)
-            { project with Units = units }
-
-        let replaceUnitInPlace (unit : Unit) (project : Project) =
-            let existing = project.Units |> List.tryFind (fun x -> x.Id = unit.Id)
-            match existing with
-            | Some e ->
-                let priority = e.Priority
-                let units =
-                    project.Units
-                    |> List.filter (fun x -> x.Id <> unit.Id)
-                let unit = { unit with Priority = priority }
-                let units = { unit with Priority = priority } :: units
-                unit, { project with Units = units }
-            | None ->
-                addNewUnit unit project
-
-        let orderUnits (project : Project) =
-            // todo: make dense ordering
-            let units = project.Units |> List.sortBy (fun x -> x.Priority)
-            { project with Units = units }

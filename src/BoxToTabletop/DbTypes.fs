@@ -23,7 +23,7 @@ type Unit = {
             primed = unit.Primed
             painted = unit.Painted
             based = unit.Based
-            priority = 0
+            priority = unit.Priority
         }
 
     member this.ToDomainType() : Domain.Types.Unit = {

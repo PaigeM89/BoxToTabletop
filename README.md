@@ -4,9 +4,9 @@ This project helps you log & track your model backlog, from building through pai
 
 MPV:
 * make in-table edits work
-    * make sure user doesn't lose active input box
-    * table ordered by priority / table sorting
-    * organize units by project
+    * make sure user doesn't lose active input box <--
+    * table ordered by priority / table sorting <--
+        just put a fuckn number lol
     * consider a way to PUT (unitId, priority)
         on any change.
 * save project settings
