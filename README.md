@@ -3,22 +3,22 @@
 This project helps you log & track your model backlog, from building through painting and being tabletop ready. If you have a pile of boxes or a collection of sprues, this project helps you manage that madness and watch your progress as you work through it.
 
 MPV:
-* make in-table edits work
-    * dense rank on deletes & inserts
-* save project settings
+* drag and drop
 * logins - google
+* batch events to send to avoid overhwelming the server
+    * with per-action updates when editing a row, this is a very strict requirement
+    * run batch on page unload
 
 Requirements: 
 * projects & categories
     * page loader?
     * switches
-* Move adding unit to its own component
 * account settings
     * quick view
+    * customize auto save timer
     * switches
     * dark mode
     * name (changeable)
-* batch events to send to avoid overhwelming the server
 * created & updated timestamps  
 * sharing links
     * add friends

@@ -15,39 +15,36 @@ module ProjectSettings =
     type Model = {
         //Name : string
         Project : Types.Project option
-        ColumnSettings : ColumnSettings option
+        //ColumnSettings : ColumnSettings option
         Config : Config.T
     } with
         static member Init(config : Config.T) = {
             //Name = ""
             Project = None
-            ColumnSettings = None
+            //ColumnSettings = None
             Config = config
         }
 
         static member InitFromProject config project = {
             Project = Some project
-            ColumnSettings = Some project.ColumnSettings
+            //ColumnSettings = Some project.ColumnSettings
             Config = config
         }
 
     module Model =
         let setProject m p =
-            { m with Project = Some p; ColumnSettings = Some p.ColumnSettings }
+            //{ m with Project = Some p; ColumnSettings = Some p.ColumnSettings }
+            { m with Project = Some p }
 
 
     type Msg =
     | Noop
-    //| CoreUpdate of update : BoxToTabletop.Client.Core.Updates
-    //| UpdateName of name : string
-    //| LoadProjectOrNew of projectId : Guid option
     | MaybeLoadProject of projectId : Guid option
     | ProjectLoaded of project : Project
     | ProjectLoadFailed of exn
     | UpdateProject of project : Project
     | UpdateProjectSuccess of project : Project
     | UpdateProjectFailure of exn
-    //| UpdateProjectSettings of
     | UpdatedColumnSettings of ColumnSettings
 
     module View =
@@ -68,11 +65,11 @@ module ProjectSettings =
                 label [ HtmlFor cbName ] [ str cbName ]
             ]
 
-        let createCheckboxes (model : Model) dispatch =
-            match model.ColumnSettings with
+        let createCheckboxes (projOpt : Project option) dispatch =
+            match projOpt with
             | Some cs ->
                 [
-                    for col in cs.EnumerateWithTransformer() ->
+                    for col in cs.ColumnSettings.EnumerateWithTransformer() ->
                         checkBoxFor col.Name col.Value (fun ev -> col.Func ev.Checked |> UpdatedColumnSettings |> dispatch)
                 ]
             | None -> []
@@ -91,23 +88,16 @@ module ProjectSettings =
                 Panel.Block.div [] [
                     Input.text [
                         Input.Size IsMedium
-                        //Input.Placeholder "Project Name"
                         match model.Project with
                         | Some p -> Input.ValueOrDefault p.Name
                         | None -> Input.Placeholder "Project Name"
                         Input.OnChange (fun ev -> nameChangeFunc ev |> dispatch)
                     ]
                 ]
-                yield! createCheckboxes model dispatch
+                yield! createCheckboxes model.Project dispatch
             ]
 
-//    let handleCoreUpdate (update : Core.Updates) (model :Model) =
-//        match update with
-//        | Core.ColumnSettingsChange _ ->
-//            // this component is the one that updates this setting; we don't need to handle it.
-//            model,  Cmd.none
-
-    module Fetching =
+    module ApiCalls =
         open Fetch
         open Thoth.Fetch
 
@@ -122,6 +112,14 @@ module ProjectSettings =
             let cmd = Cmd.OfPromise.either updateFunc project UpdateProjectSuccess UpdateProjectFailure
             model, cmd
 
+        let tryUpdateColumnSettings (model : Model) (cs : ColumnSettings) =
+            match model.Project with
+            | Some project ->
+                updateProject model { project with ColumnSettings = cs }
+            | None ->
+                printfn "Received column settings update of %A when there is no project loaded" cs
+                model, Cmd.none
+
 
     let update (model : Model) (msg : Msg) =
         printfn "In project settings with msg %A" msg
@@ -129,17 +127,9 @@ module ProjectSettings =
         | Noop -> model, Cmd.none
         | MaybeLoadProject projectIdOpt ->
             match projectIdOpt with
-            | Some projId -> Fetching.loadProject model projId
+            | Some projId -> ApiCalls.loadProject model projId
             | None ->
                 { model with Project = None }, Cmd.none
-
-//        | LoadProjectOrNew projectIdOpt ->
-//            match projectIdOpt with
-//            | Some projectId ->
-//                Fetching.loadProject model projectId
-//            | None ->
-//                let newProj = Project.Empty()
-//                { model with Project = Some newProj }, Cmd.ofMsg (ProjectLoaded newProj)
         | ProjectLoaded proj ->
             let mdl = Model.setProject model proj
             mdl, Cmd.none
@@ -147,11 +137,12 @@ module ProjectSettings =
             printfn "%A" e
             model, Cmd.none
         | UpdateProject project ->
-            Fetching.updateProject model project
+            ApiCalls.updateProject model project
         | UpdateProjectSuccess _ -> model, Cmd.none
         | UpdateProjectFailure exn ->
             printfn "%A" exn
             model, Cmd.none
-        | UpdatedColumnSettings settings ->
-            printfn "in settings handler, new settings are %A" settings
-            { model with ColumnSettings = Some settings }, Cmd.none
+        | UpdatedColumnSettings cs ->
+            ApiCalls.tryUpdateColumnSettings model cs
+            //ApiCalls.updateProject { model with ColumnSettings = Some settings }
+            //{ model with ColumnSettings = Some settings }, Cmd.none

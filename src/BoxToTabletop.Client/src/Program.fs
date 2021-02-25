@@ -151,7 +151,8 @@ let handleProjectSettingsMsg (msg : ProjectSettings.Msg) (model : Model) =
             let addMdl = { model.AddUnitModel with ProjectId = proj.Id }
             let model = { model with ShowSpinner = false; AddUnitModel = addMdl }
             let cmd = UnitsList.Msg.LoadUnitsForProject proj.Id |> UnitsListMsg |> Cmd.ofMsg
-            model, cmd
+            let cmd2 = AddUnit.Msg.UpdateColumnSettings proj.ColumnSettings |> AddUnitMsg |> Cmd.ofMsg
+            model, [ cmd; cmd2 ] |> Cmd.batch
         | ProjectSettings.UpdatedColumnSettings newProj ->
             let cmd1 = UnitsList.Msg.UpdatedColumnSettings newProj |> UnitsListMsg |> Cmd.ofMsg
             let cmd2 = AddUnit.Msg.UpdateColumnSettings newProj |> AddUnitMsg |> Cmd.ofMsg
