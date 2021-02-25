@@ -104,6 +104,8 @@ module Types =
     module UnitPriority =
         let denseRank (priorities : UnitPriority list) =
             priorities
+            |> List.sortBy (fun x -> x.UnitPriority)
+            |> List.mapi (fun i x -> { x with UnitPriority = i })
 
     type ColumnSettings = {
         AssemblyVisible : bool

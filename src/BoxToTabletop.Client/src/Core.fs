@@ -114,7 +114,7 @@ module Promises =
 
     open Fable.SimpleHttp
 
-    let updateUnitPriorites2 (config : Config.T) (projId : Guid) (updates : UnitPriority list) = async {
+    let updateUnitPriorities2 (config : Config.T) (projId : Guid) (updates : UnitPriority list) = async {
         let url = Project.Priorities.PUT() |> buildRoute config <| projId
         let encoded = UnitPriority.EncodeList updates
         let payload = Thoth.Json.Encode.toString 0 encoded

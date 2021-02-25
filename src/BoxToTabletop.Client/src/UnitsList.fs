@@ -79,6 +79,11 @@ module UnitsList =
         module Units =
             let setProjectId projectId _unit = { _unit with Unit.ProjectId = projectId }
 
+            let denseRank units =
+                units |> ResizeArray.sortBy (fun x -> x.Priority)
+                units |> ResizeArray.mapi (fun i x -> { x with Priority = i })
+
+
         let setErrorMessage msg model = { model with ErrorMessage = Some (ErrorMessage msg) }
         let setInfoMessage msg model = { model with ErrorMessage = Some (InfoMessage msg) }
         let removeErrorMessage model = { model with ErrorMessage = None }
@@ -102,8 +107,6 @@ module UnitsList =
             ResizeArray.sortBy (fun x -> x.Priority) ra
 
             { model with Units = ra }
-
-
 
         module Updates =
             let setUnits units model = { model with Model.Units = units }
@@ -129,7 +132,7 @@ module UnitsList =
     | UpdateRowFailure of exn
     /// If a unit is added or moved, all unit priorities get updated.
     | TryUpdatePriorities
-    //| UpdatePrioritiesResponse of Result<UnitPriority list, Thoth.Fetch.FetchError>
+    | UpdatePrioritiesResponse of Result<UnitPriority list, Thoth.Fetch.FetchError>
     | UpdatePrioritiesResponse2 of Result<unit, int>
     | UpdatePrioritiesFailure of exn
     | TryDeleteRow of unitId : Guid
@@ -143,13 +146,6 @@ module UnitsList =
         //https://github.com/fable-compiler/fable-react/blob/master/src/Fable.React.Standard.fs
         open Fable.FontAwesome
 
-//        let addUnitWrapper custom elements =
-//            div [ ClassName "Block"  ] [ Box.box' custom [
-//                Level.level [ Level.Level.CustomClass "no-flex-shrink" ] [
-//                    Level.item [ Level.Item.HasTextCentered; Level.Item.CustomClass "no-flex-shrink" ] [ div [] elements ]
-//                ]
-//            ]]
-
         let numericInput inputColor name (dv : int) action =
             Input.number [
                 Input.Id name
@@ -160,93 +156,6 @@ module UnitsList =
                 Input.Props [ HTMLAttr.Min 0; HTMLAttr.FrameBorder "1px solid";  ]
                 Input.CustomClass "numeric-input-width"
             ]
-
-//        let newUnitNumericInput inputColor name (dv : int) action =
-//            addUnitWrapper [] [
-//                Level.heading [] [ str name ]
-//                Field.div [ Field.HasAddonsRight] [
-//                    Level.item [ Level.Item.CustomClass "no-flex-shrink" ] [
-//                        numericInput inputColor name dv action
-//                    ]
-//                ]
-//            ]
-//
-//        let unitNameInput inputColor partial dispatch =
-//            let changeHandler (ev : Event) =
-//                { partial with UnitName = ev.Value }
-//                |> UpdatePartialData
-//                |> dispatch
-//
-//            Level.level [  Level.Level.Modifiers [  Modifier.Display (Screen.All, Fulma.Display.Option.Flex) ]; Level.Level.CustomClass "no-flex-shrink"] [
-//                Level.item [ Level.Item.HasTextCentered; Level.Item.CustomClass "no-flex-shrink" ] [
-//                    div []  [
-//                        Level.heading [] [ str "Unit Name" ]
-//                        Level.item [] [
-//                            Input.text [
-//                                inputColor
-//                                Input.Placeholder "Unit name"; Input.ValueOrDefault partial.UnitName; Input.OnChange changeHandler
-//                            ]
-//                        ]
-//                    ]
-//                ]
-//            ] |> FSharp.Collections.List.singleton |> addUnitWrapper []
-
-//        let inputNewUnit cs partial dispatch =
-//            let func (ev : Browser.Types.Event) transform =
-//                let c = Parsing.parseIntOrZero ev.Value
-//                UpdatePartialData (transform partial c)
-//                |> dispatch
-//            let inputColor =
-//                if partial.ShowError then IsDanger else NoColor
-//                |> Input.Color
-//            Level.level [ ] [
-//                unitNameInput inputColor partial dispatch
-//                newUnitNumericInput inputColor "Models" partial.ModelCount (fun ev -> func ev (fun p c -> { p with ModelCount = c }))
-//                if cs.AssemblyVisible then newUnitNumericInput inputColor "Assembled" partial.AssembledCount (fun ev -> func ev (fun p c -> { p with AssembledCount = c }))
-//                if cs.PrimedVisible then newUnitNumericInput inputColor "Primed" partial.PrimedCount (fun ev -> func ev (fun p c -> { p with PrimedCount = c }))
-//                if cs.PaintedVisible then newUnitNumericInput inputColor "Painted" partial.PaintedCount (fun ev -> func ev (fun p c -> { p with PaintedCount = c }))
-//                if cs.BasedVisible then newUnitNumericInput inputColor "Based" partial.BasedCount (fun ev -> func ev (fun p c -> { p with BasedCount = c }))
-//                addUnitWrapper [  CustomClass "add-unit-button-box" ] [
-//                    Button.Input.submit [
-//                        Button.Props [ Value "Add" ]
-//                        Button.Color IsSuccess
-//                        Button.OnClick (fun _ -> TryAddNewUnit |> dispatch)
-//                    ]
-//                ]
-//            ]
-
-//        let unitRow (cs : ColumnSettings) (unit : Unit) dispatch =
-//            let changeHandler transform (ev : Browser.Types.Event)  =
-//                let i = Parsing.parseIntOrZero ev.Value
-//                ()
-//
-//            let modelCountFunc (ev : Browser.Types.Event) = changeHandler (fun (u : Unit) i -> u.Priority, { u with Models = i }) ev
-//            let assembledFunc  (ev : Browser.Types.Event) = changeHandler (fun (u : Unit) i -> u.Priority, { u with Assembled = i }) ev
-//            let primedFunc  (ev : Browser.Types.Event) = changeHandler (fun (u : Unit) i -> u.Priority, { u with Primed = i }) ev
-//            let paintedFunc  (ev : Browser.Types.Event) = changeHandler (fun (u : Unit) i -> (u.Priority, { u with Painted = i })) ev
-//            let basedFunc  (ev : Browser.Types.Event) = changeHandler (fun (u : Unit) i -> (u.Priority, { u with Based = i })) ev
-//
-//            let nc = Input.Color NoColor
-//            let unitId = unit.Id.ToString("N") + "-"
-//
-//            let optionalColumns = [
-//                if cs.AssemblyVisible then td [] [numericInput nc (unitId + "assembled") unit.Assembled assembledFunc ]
-//                if cs.PrimedVisible then td [] [numericInput nc (unitId + "primed") unit.Primed primedFunc ]
-//                if cs.PaintedVisible then td [] [numericInput nc (unitId + "painted") unit.Painted paintedFunc ]
-//                if cs.BasedVisible then td [] [numericInput nc (unitId + "based") unit.Based basedFunc ]
-//            ]
-//            tr [] [
-//                td [] [ Label.label [] [ str (string unit.Priority) ] ]
-//                td [] [
-//                    //todo: shrink this a little
-//                    Input.input [ Input.ValueOrDefault unit.Name ]
-//                ]
-//                td [] [
-//                    numericInput (Input.Color NoColor) (unit.Id.ToString() + "-models") unit.Models modelCountFunc
-//                ]
-//                yield! optionalColumns
-//                td [] [ Delete.delete [ Delete.Size IsMedium; Delete.OnClick (fun _ -> RemoveErrorMessage |> dispatch ) ] [ ] ]
-//            ]
 
         let unitRow2 (cs : ColumnSettings) dispatch (unit : Unit)  =
             let changeHandler transform (ev : Browser.Types.Event)  =
@@ -333,8 +242,6 @@ module UnitsList =
                 |> Table.table [ Table.IsBordered; Table.IsStriped; Table.IsNarrow; Table.IsHoverable; Table.CustomClass "list-units-table" ]
             Section.section [] [
                 if Option.isSome saveError then Option.get saveError
-                //Heading.h3 [ Heading.IsSubtitle  ] [ Text.p [ Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ][ str "Add a new unit" ]]
-                //inputNewUnit model.ColumnSettings model.PartialData dispatch
                 hr []
                 Columns.columns [ Columns.IsGap(Screen.All, Columns.Is1) ] [
                     Column.column [  ] [
@@ -369,15 +276,17 @@ module UnitsList =
             model, Cmd.OfPromise.either promise u UpdateRowResponse UpdateRowFailure
 
         let updateUnitPriorities (model : Model) =
-            let priorities =
+            let units =
                 model.Units
-                |> ResizeArray.map (fun x -> { UnitPriority.UnitId = x.Id ; UnitPriority = x.Priority })
+                |> Model.Units.denseRank
+            let model = { model with Units = units }
+            let priorities = units |> ResizeArray.map (fun x -> { UnitPriority.UnitId = x.Id ; UnitPriority = x.Priority })
             printfn "saving new priorities of %A" priorities
-            let promise priorities = Promises.updateUnitPriorites2 model.Config model.ProjectId priorities
+            let promise priorities = Promises.updateUnitPriorities2 model.Config model.ProjectId priorities
             model, Cmd.OfAsync.either promise (ResizeArray.to_list priorities) UpdatePrioritiesResponse2 UpdatePrioritiesFailure
 
         let tryDeleteRow unitId model =
-            let removed = model.Units |> ResizeArray.filter (fun x -> x.Id <> unitId)
+            let removed = model.Units |> ResizeArray.filter (fun x -> x.Id <> unitId) |> Model.Units.denseRank
             let model = { model with Units = removed }
             printfn "Removing unit with id %A" unitId
             let promise id = Promises.deleteUnit model.Config model.ProjectId id
@@ -418,11 +327,13 @@ module UnitsList =
             | Error e ->
                 setErrorMsg e model
 
-//        let updatePriorities (response) (model) =
-//            match response with
-//            | Ok priorities ->
-//                model |> Model.removeErrorMessage, Cmd.none
-//            | Error e -> setErrorMsg e model
+        let updatePriorities (response) (model) =
+            match response with
+            | Ok priorities ->
+                // these priorities are now dense ranked, so update the units
+
+                model |> Model.removeErrorMessage, Cmd.none
+            | Error e -> setErrorMsg e model
 
         let updatePriorities2 (response) (model) =
             match response with
@@ -456,7 +367,7 @@ module UnitsList =
         | UpdateRowResponse res -> ResponseHandlers.updateUnit res model
         | UpdateRowFailure e -> ResponseHandlers.setExceptionMsg e model
         | TryUpdatePriorities -> ApiCalls.updateUnitPriorities model
-        //| UpdatePrioritiesResponse res -> ResponseHandlers.updatePriorities res model
+        | UpdatePrioritiesResponse res -> ResponseHandlers.updatePriorities res model
         | UpdatePrioritiesResponse2 res ->
             ResponseHandlers.updatePriorities2 res model
         | UpdatePrioritiesFailure e -> ResponseHandlers.setExceptionMsg e model
