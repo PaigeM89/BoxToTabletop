@@ -16,6 +16,8 @@ let Root = "/api/v1"
 
 // todo: see if these can better handle guids
 // and see if we can make routing cleaner in the server
+// i don't like any of the ways I'm doing these
+
 
 module Project =
     let Root = Root %% "projects"
@@ -25,6 +27,10 @@ module Project =
     let PUT() = PrintfFormat<_,_,_,_,_> (Root %% "%O")
     let PUT2 = fun baseUrl (id : Guid) -> baseUrl %% Root %% (sprintf "%O" id)
     let DELETE() = PrintfFormat<_,_,_,_,_> (Root %% "%O")
+
+    module Priorities =
+        let PrioritiesRoot = "priorities"
+        let PUT() = PrintfFormat<_,_,_,_,_> (Root %% "%O" %% PrioritiesRoot)
 
     module UnitRoutes =
         // all units are accessed from within a project

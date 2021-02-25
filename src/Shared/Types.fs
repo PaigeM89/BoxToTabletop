@@ -56,27 +56,54 @@ module Types =
             Decode.list Unit.Decoder
 
         static member Encoder (unit : Unit) =
-            Encode.object
-                [
-                    "id", Encode.guid unit.Id
-                    "projectId", Encode.guid unit.ProjectId
-                    "name", Encode.string unit.Name
-                    "models", Encode.int unit.Models
-                    "assembled", Encode.int unit.Assembled
-                    "primed", Encode.int unit.Primed
-                    "painted", Encode.int unit.Painted
-                    "based", Encode.int unit.Based
-                    "priority", Encode.int unit.Priority
-                ]
+            let v =
+                Encode.object
+                    [
+                        "id", Encode.guid unit.Id
+                        "projectId", Encode.guid unit.ProjectId
+                        "name", Encode.string unit.Name
+                        "models", Encode.int unit.Models
+                        "assembled", Encode.int unit.Assembled
+                        "primed", Encode.int unit.Primed
+                        "painted", Encode.int unit.Painted
+                        "based", Encode.int unit.Based
+                        "priority", Encode.int unit.Priority
+                    ]
+            printfn "encoded unit is %s" (v.ToString())
+            v
 
-//    type ProjectCategory = {
-//        Id : Guid
-//        Name : string
-//    } with
-//        static member Empty() = {
-//            Id = Guid.NewGuid()
-//            Name = ""
-//        }
+    type UnitPriority = {
+        UnitId : Guid
+        UnitPriority : int
+    } with
+        static member Decoder : Decoder<UnitPriority> =
+            Decode.object
+                (fun get ->
+                    {
+                      UnitId = get.Required.Field "unitid" Decode.guid
+                      UnitPriority = get.Required.Field "unitpriority" Decode.int
+                    }
+                )
+
+        member this.Encode() =
+            let e = Encode.object [
+                "unitid", Encode.guid this.UnitId
+                "unitpriority", Encode.int this.UnitPriority
+            ]
+            printfn "Encoded object is %s" (e.ToString())
+            e
+
+        static member EncodeList (ups : UnitPriority list) =
+            let v = Encode.list (ups |> List.map (fun x -> x.Encode()))
+            printfn "encoded unit list is \"%s\"" (v.ToString())
+            v
+
+        static member DecodeList : Decoder<UnitPriority list> =
+            Decode.list UnitPriority.Decoder
+
+    module UnitPriority =
+        let denseRank (priorities : UnitPriority list) =
+            priorities
 
     type ColumnSettings = {
         AssemblyVisible : bool

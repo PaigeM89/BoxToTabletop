@@ -14,6 +14,9 @@ Fable.FontAwesome
 Fable.FontAwesome.Free
 Fulma.Extensions.Wikiki.PageLoader
 Fulma.Extensions.Wikiki.Divider
+Fable.SimpleHttp
 
 Fable.Elmish
 Fable.Elmish.React
+
+FSharpx.Collections

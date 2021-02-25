@@ -123,6 +123,7 @@ module Main =
             Routing.Dependencies.loadProject = Repository.loadProject
             Routing.Dependencies.saveProject = Repository.saveProject
             Routing.Dependencies.updateProject = Repository.updateProject
+            Routing.Dependencies.updatePriority = Repository.updatePriority
         }
 
 

@@ -16,6 +16,7 @@ open Fulma.Extensions.Wikiki
 open BoxToTabletop.Client
 
 type Model = {
+    AddUnitModel : AddUnit.Model
     UnitsListModel : UnitsList.Model
     ProjectSettings : ProjectSettings.Model
     ProjectsListModel : ProjectsList.Model
@@ -25,6 +26,7 @@ type Model = {
 } with
     static member InitWithConfig (config : Config.T) = {
         //Project = Project.Model.Init(config)
+        AddUnitModel = AddUnit.Model.Init(config)
         UnitsListModel = UnitsList.Model.Init(config)
         ProjectSettings = ProjectSettings.Model.Init(config)
         ProjectsListModel = ProjectsList.Model.Init(config)
@@ -38,7 +40,7 @@ type Model = {
 
 type Msg =
 | Start
-//| Core of Core.Updates
+| AddUnitMsg of AddUnit.Msg
 | UnitsListMsg of UnitsList.Msg
 | ProjectSettingsMsg of ProjectSettings.Msg
 | ProjectsListMsg of ProjectsList.Msg
@@ -116,6 +118,9 @@ module View =
         let projectView state =
             UnitsList.View.view state.UnitsListModel (fun (x : UnitsList.Msg) ->  UnitsListMsg x |> dispatch)
 
+        let inputView model =
+            AddUnit.View.view model.AddUnitModel (fun (x : AddUnit.Msg) -> AddUnitMsg x |> dispatch)
+
         let navbar = navbar model dispatch
         let dividerOption = divider model
         div [] [
@@ -125,7 +130,10 @@ module View =
                     [
                         leftPanel model dispatch
                         if dividerOption.IsSome then Option.get dividerOption
-                        Column.column [  ] [ projectView model ]
+                        Column.column [  ] [
+                            inputView model
+                            projectView model
+                        ]
                     ]
             ]
         ]
@@ -134,48 +142,55 @@ module View =
 
 open Elmish.React
 
-let projectMsgToCmd msg =
-    match msg with
-    | _ -> Cmd.none
-
-let settingsMsgToCmd msg =
-    printfn "settings to cmd"
-    match msg with
-    //| ProjectSettings.CoreUpdate msg -> Cmd.ofMsg (Core msg)
-    | _ ->
-        printfn "none lol"
-        Cmd.none
-
 let handleProjectSettingsMsg (msg : ProjectSettings.Msg) (model : Model) =
     let setMdl, setCmd = ProjectSettings.update model.ProjectSettings msg
 
     let mdl, newCmd =
         match msg with
         | ProjectSettings.ProjectLoaded proj ->
-            let model = { model with ShowSpinner = false; }
+            let addMdl = { model.AddUnitModel with ProjectId = proj.Id }
+            let model = { model with ShowSpinner = false; AddUnitModel = addMdl }
             let cmd = UnitsList.Msg.LoadUnitsForProject proj.Id |> UnitsListMsg |> Cmd.ofMsg
             model, cmd
         | ProjectSettings.UpdatedColumnSettings newProj ->
-            let cmd = UnitsList.Msg.UpdatedColumnSettings newProj |> UnitsListMsg |> Cmd.ofMsg
-            model, cmd
+            let cmd1 = UnitsList.Msg.UpdatedColumnSettings newProj |> UnitsListMsg |> Cmd.ofMsg
+            let cmd2 = AddUnit.Msg.UpdateColumnSettings newProj |> AddUnitMsg |> Cmd.ofMsg
+            model, [ cmd1 ; cmd2 ] |> Cmd.batch
         | _ -> model, Cmd.none
 
     let cmds = [ (Cmd.map ProjectSettingsMsg setCmd); newCmd ] |> Cmd.batch
     { mdl with ProjectSettings = setMdl }, cmds
 
+let handleAddUnitMsg (msg : AddUnit.Msg) (model : Model) =
+    let addMdl, addCmd = AddUnit.update model.AddUnitModel msg
+
+    let mdl, cmd =
+       match msg with
+       | AddUnit.AddNewUnit unit ->
+            let msg = UnitsList.TryAddNewUnit unit
+            model, Cmd.ofMsg (UnitsListMsg msg)
+       | _ -> model, Cmd.none
+
+    let cmds = [ (Cmd.map AddUnitMsg addCmd ); cmd] |> Cmd.batch
+    { mdl with AddUnitModel = addMdl }, cmds
 
 let handleUnitsListMsg (msg : UnitsList.Msg) (model : Model) =
     let unitsMdl, unitsCmd = UnitsList.update model.UnitsListModel msg
     let mdl,newMsg =
         match msg with
-        | UnitsList.UpdateUnitRow _
-        | UnitsList.AddUnit _ ->
+        | UnitsList.TryUpdatePriorities
+        | UnitsList.TryAddNewUnit _
+        //| UnitsList.TryDeleteRow _ - needs an appropriate success msg
+        | UnitsList.LoadUnitsForProject _ ->
             { model with ShowSpinner = true }, Cmd.none
-        | UnitsList.AddUnitSuccess _
-        | UnitsList.AddUnitFailure _
-        | UnitsList.UpdateUnitSuccess _
-        | UnitsList.UpdateUnitFailure _ ->
-            { model with ShowSpinner  = false }, Cmd.none
+        //| UnitsList.UpdatePrioritiesResponse _
+        | UnitsList.UpdatePrioritiesResponse2 _
+        | UnitsList.UpdatePrioritiesFailure _
+        | UnitsList.AddNewUnitResponse _
+        | UnitsList.AddNewUnitFailure _
+        | UnitsList.LoadUnitsResponse _
+        | UnitsList.LoadUnitsFailure _ ->
+            { model with ShowSpinner = false }, Cmd.none
         | _ -> model, Cmd.none
 
     let cmds = [ (Cmd.map UnitsListMsg unitsCmd); newMsg ] |> Cmd.batch
@@ -199,7 +214,6 @@ let handleProjectsListMsg (msg : ProjectsList.Msg) (model : Model) =
         | ProjectsList.ProjectSelected proj ->
             let cmd = Cmd.ofMsg (ProjectSettings.Msg.MaybeLoadProject (Some proj.Id)) |> Cmd.map ProjectSettingsMsg
             { model with ShowSpinner = true }, cmd
-        | _ -> model, Cmd.none
 
     let cmds = [ (Cmd.map ProjectsListMsg listCmd); newMsg ] |> Cmd.batch
     { mdl with ProjectsListModel = listMdl }, cmds
@@ -210,6 +224,7 @@ let update (msg : Msg) (model : Model) : (Model * Cmd<Msg>)=
     | Start ->
         let loadProjectsCmd = Cmd.ofMsg (ProjectsList.Msg.LoadAllProjects)
         { model with ShowSpinner = true }, Cmd.map ProjectsListMsg loadProjectsCmd
+    | AddUnitMsg msg -> handleAddUnitMsg msg model
     | UnitsListMsg unitsListMsg ->
         handleUnitsListMsg unitsListMsg model
     | ProjectSettingsMsg projectSettingsMsg -> handleProjectSettingsMsg projectSettingsMsg model

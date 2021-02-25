@@ -5,12 +5,15 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../Shared/Helpers.fs" />
+    <Compile Include="../../Shared/ResizeArray.fs" />
     <Compile Include="../../Shared/Types.fs" />
     <Compile Include="../../Shared/Routes.fs" />
     <Compile Include="Core.fs" />
     <Compile Include="ProjectSettings.fs" />
+    <Compile Include="AddUnit.fs" />
     <Compile Include="UnitsList.fs" />
     <Compile Include="ProjectsList.fs" />
+    <Compile Include="AlertMessage.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>

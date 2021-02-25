@@ -24,76 +24,87 @@ open Npgsql.FSharp
 //        return! q |> Deconstructor.select<'a> |> IDbConnection.query1<'a> this trans timeout logfunction
 //    }
 
+type CreateConn = unit -> System.Data.IDbConnection
+
 let createDbConnection (connstr : string) () : IDbConnection =
     let props : Sql.SqlProps = Sql.connect connstr
     Npgsql.FSharp.Sql.createConnection props :> IDbConnection
 
-let loadUnit (conn : IDbConnection) (id : Guid) () =
+let loadUnit (conn : CreateConn) (id : Guid) () =
     select {
         table "units"
         where (eq "id" id)
-    } |> conn.SelectAsync<Unit>
+    } |> conn().SelectAsync<Unit>
 
-let loadUnits (conn : IDbConnection) (projId : Guid) =
+let loadUnits (conn : CreateConn) (projId : Guid) =
     select {
         table "units"
         where (eq "project_id" projId)
     }
-    |> conn.SelectAsync<Unit>
+    |> conn().SelectAsync<Unit>
     |> Task.map (List.ofSeq >> List.map (fun x -> x.ToDomainType()))
 
-let insertUnit (conn : IDbConnection) (unit : Unit) =
+let insertUnit (conn : CreateConn) (unit : Unit) =
     insert {
         table "units"
         value unit
     }
-    |> conn.InsertAsync
-    |> Task.map (fun r ->
-        if r = 1 then Ok () else Error (sprintf "Wrong number of records inserted. Inserted %i records" r)
-    )
+    |> conn().InsertAsync
 
-let updateUnit (conn : IDbConnection) (unit : Unit) =
+let updateUnit (conn : CreateConn) (unit : Unit) =
     update {
         table "units"
         set unit
         where (eq "id" unit.id)
-    } |> conn.UpdateAsync
+    } |> conn().UpdateAsync
 
-let deleteUnit (conn : IDbConnection) (projId : Guid) (id : Guid) =
+let deleteUnit (conn : CreateConn) (projId : Guid) (id : Guid) =
     delete {
         table "units"
-        where (eq "id" id)
-        where (eq "project_id" projId)
-    } |> conn.DeleteAsync
+        where (eq "id" id + eq "project_id" projId)
+    } |> conn().DeleteAsync
 
-//todo: implement this in npgsql
-let updateUnitPriority (conn : unit -> IDbConnection) (id : Guid) =
-    ()
-
-let loadAllProjects (conn : IDbConnection) =
+let loadAllProjects (conn : CreateConn) =
     select {
         table "projects"
-    } |> conn.SelectAsync<Project>
+    } |> conn().SelectAsync<Project>
     |> Task.map (List.ofSeq >> List.map (fun x -> x.ToDomainType()))
 
-let loadProject (conn : IDbConnection) (id : Guid) =
+let loadProject (conn : CreateConn) (id : Guid) =
     select {
         table "projects"
         where (eq "id" id)
         take 1
-    } |> conn.SelectAsync<Project>
+    } |> conn().SelectAsync<Project>
     |> Task.map (List.ofSeq >> List.map (fun x -> x.ToDomainType()) >> List.tryHead)
 
-let saveProject (conn : IDbConnection) (project : DbTypes.Project) =
+let saveProject (conn : CreateConn) (project : DbTypes.Project) =
     insert {
         table "projects"
         value project
     }
-    |> conn.InsertAsync
+    |> conn().InsertAsync
 
-let updateProject (conn : IDbConnection) (project : DbTypes.Project) =
+let updateProject (conn : CreateConn) (project : DbTypes.Project) =
     update {
         table "projects"
         set project
         where (eq "id" project.id)
-    } |> conn.UpdateAsync
+    } |> conn().UpdateAsync
+
+/// Updates the priority value for a single unit.
+let updatePriority (conn : CreateConn) (projectId : Guid) (unitId : Guid) (priority : int) =
+    update {
+        table "units"
+        //set priority = priority
+        set {| priority = priority |}
+        where (eq "id"  unitId)
+    } |> conn().UpdateAsync
+
+//let updatePriorities (props: Sql.SqlProps) (priorities : (int * Guid) list) =
+//    props
+//    |> Sql.executeNonQueryAsync """
+//        UPDATE unit_priorities
+//            SET
+//
+//"""

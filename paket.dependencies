@@ -8,6 +8,7 @@ nuget YoloDev.Expecto.TestSdk 0.9.2
 nuget Microsoft.NET.Test.Sdk 16.8.0
 nuget altcover ~> 7
 nuget Packaging.Targets 0.1.189
+nuget FSharpx.Collections
 
 nuget Giraffe
 nuget Dapper.FSharp
@@ -39,6 +40,7 @@ nuget Fulma.Extensions.Wikiki.Divider
 nuget Fable.React
 nuget Fable.Promise
 nuget Fulma
+nuget Fable.SimpleHttp
 
 
 nuget FSharp.Control.AsyncRx ~> 1.6

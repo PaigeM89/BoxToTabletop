@@ -8,7 +8,8 @@ MPV:
     * table ordered by priority / table sorting <--
         just put a fuckn number lol
     * consider a way to PUT (unitId, priority)
-        on any change.
+        on any chang
+    * dense rank on deletes
 * save project settings
 * logins - google
 
@@ -16,6 +17,7 @@ Requirements:
 * projects & categories
     * page loader?
     * switches
+* Move adding unit to its own component
 * account settings
     * quick view
     * switches
@@ -26,6 +28,7 @@ Requirements:
 * sharing links
     * add friends
     * set account private
+* next 10
 * stats
     * by date, editable, with graphs
 * setting to not do individual counts each step

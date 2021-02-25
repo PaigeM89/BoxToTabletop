@@ -21,10 +21,20 @@ CREATE TABLE projects (
 ALTER TABLE units
   ADD CONSTRAINT fk_projects FOREIGN KEY(project_id) REFERENCES projects(id);
 
+CREATE TABLE unit_priorities (
+  id uuid NOT NULL PRIMARY KEY,
+  project_id uuid NOT NULL,
+  priorities : jsonb NOT NULL
+);
+
+ALTER TABLE unit_priorities
+    ADD CONSTRAINT fk_projects FOREIGN KEY(project_id) REFERENCES projects(id);
+
 """)
   override __.Down () =
       base.Execute.Sql("""
 ALTER TABLE units DROP CONSTRAINT fk_projects;
-
+ALTER TABLE unit_priorities DROP CONSTRAINT fk_projects;
+DROP TABLE unit_priorities;
 DROP TABLE projects;
 """)
