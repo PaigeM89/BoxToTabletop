@@ -10,6 +10,13 @@ NUGET
     Dapper.FSharp (1.16)
       Dapper (>= 2.0.30) - restriction: >= netstandard2.0
       FSharp.Core (>= 4.7) - restriction: >= netstandard2.0
+    Elmish.DragAndDrop (0.1)
+      Fable.Browser.Dom (>= 2.2) - restriction: >= netstandard2.0
+      Fable.Browser.Event (>= 1.2.1) - restriction: >= netstandard2.0
+      Fable.Core (>= 3.2.4) - restriction: >= netstandard2.0
+      Fable.Elmish (>= 3.1) - restriction: >= netstandard2.0
+      Fable.React (>= 7.2) - restriction: >= netstandard2.0
+      FSharp.Core (>= 5.0) - restriction: >= netstandard2.0
     Expecto (9.0.2)
       FSharp.Core (>= 4.6) - restriction: || (>= net461) (>= netstandard2.0)
       Mono.Cecil (>= 0.11.2) - restriction: || (>= net461) (>= netstandard2.0)

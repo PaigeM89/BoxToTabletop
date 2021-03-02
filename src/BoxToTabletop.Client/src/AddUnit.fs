@@ -59,6 +59,10 @@ module AddUnit =
         module Unit =
             let setProjectId projId unit = { unit with Unit.ProjectId = projId }
 
+    type ExternalMsg =
+    /// Raised externally. The unit was successfully added. Clear the input.
+    | AddNewUnitSuccess
+
     type Msg =
     | UpdateColumnSettings of cs : ColumnSettings
     | UpdatePartialData of newPartial : PartialData
@@ -66,10 +70,9 @@ module AddUnit =
     | TryAddNewUnit
     /// Adds a new, valid unit.
     | AddNewUnit of unit : Unit
-    /// Raised externally. The unit was successfully added. Clear the input.
-    | AddNewUnitSuccess
     /// There are invalid inputs to create a new unit
     | ShowInputErrors
+    | External of ExternalMsg
 
     module View =
         open Fable.React
@@ -137,7 +140,7 @@ module AddUnit =
             let inputColor =
                 if partial.ShowError then IsDanger else NoColor
                 |> Input.Color
-            Section.section [] [
+            Section.section [ Section.CustomClass "no-padding-section"  ] [
                 Heading.h3 [ Heading.IsSubtitle  ] [ Text.p [ Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ][ str "Add a new unit" ]]
                 Level.level [ ] [
                     unitNameInput inputColor partial dispatch
@@ -174,7 +177,10 @@ module AddUnit =
                 Model.toggleShowErrors true model , Cmd.none
         | AddNewUnit _ ->
             model, Cmd.none
-        | AddNewUnitSuccess ->
-            { model with PartialData = PartialData.Init() }, Cmd.none
+//        | AddNewUnitSuccess ->
+//            { model with PartialData = PartialData.Init() }, Cmd.none
         | ShowInputErrors ->
             Model.toggleShowErrors false model, Cmd.none
+        | External (AddNewUnitSuccess) ->
+            { model with PartialData = PartialData.Init() }, Cmd.none
+

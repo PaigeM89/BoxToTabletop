@@ -8,6 +8,12 @@ MPV:
 * batch events to send to avoid overhwelming the server
     * with per-action updates when editing a row, this is a very strict requirement
     * run batch on page unload
+* use ExternalMsg : https://medium.com/@MangelMaxime/my-tips-for-working-with-elmish-ab8d193d52fd
+
+
+debounce for batching? 
+
+https://thoth-org.github.io/Thoth.Elmish.Debouncer/
 
 Requirements: 
 * projects & categories
@@ -18,7 +24,7 @@ Requirements:
     * customize auto save timer
     * switches
     * dark mode
-    * name (changeable)
+    * name (changeable?)
 * created & updated timestamps  
 * sharing links
     * add friends
@@ -33,6 +39,10 @@ Requirements:
 minor changes to make:
 * make add unit box thing collapsable
 * make project box thing collapsable
+
+far future: 
+* integrate math
+* integrate crusade tracker
 
 ---
 

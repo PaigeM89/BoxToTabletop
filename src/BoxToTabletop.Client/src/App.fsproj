@@ -8,6 +8,7 @@
     <Compile Include="../../Shared/ResizeArray.fs" />
     <Compile Include="../../Shared/Types.fs" />
     <Compile Include="../../Shared/Routes.fs" />
+    <Compile Include="ReactDND.fs" />
     <Compile Include="Core.fs" />
     <Compile Include="ProjectSettings.fs" />
     <Compile Include="AddUnit.fs" />

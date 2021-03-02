@@ -2,6 +2,7 @@ module Root
 
 open System.ComponentModel
 open App
+open BoxToTabletop.Client.UnitsList
 open BoxToTabletop.Domain.Routes
 open BoxToTabletop.Domain.Types
 open BoxToTabletop.Client.Core
@@ -9,11 +10,11 @@ open Browser.Types
 open Fable.React
 open Fable.Reaction
 open Elmish
-
 open FSharp.Control
 open Fulma
 open Fulma.Extensions.Wikiki
 open BoxToTabletop.Client
+open Elmish.React
 
 type Model = {
     AddUnitModel : AddUnit.Model
@@ -125,6 +126,7 @@ module View =
         let dividerOption = divider model
         div [] [
             navbar
+            //AlertMessage.page()
             Container.container [ Container.IsFluid ] [
                 Columns.columns [ Columns.IsGap (Screen.All, Columns.Is1); Columns.IsGrid; Columns.IsVCentered ]
                     [
@@ -139,23 +141,23 @@ module View =
         ]
 
 
-
-open Elmish.React
-
 let handleProjectSettingsMsg (msg : ProjectSettings.Msg) (model : Model) =
     let setMdl, setCmd = ProjectSettings.update model.ProjectSettings msg
 
     let mdl, newCmd =
         match msg with
-        | ProjectSettings.ProjectLoaded proj ->
+        | ProjectSettings.ProjectLoaded (Ok proj) ->
             let addMdl = { model.AddUnitModel with ProjectId = proj.Id }
             let model = { model with ShowSpinner = false; AddUnitModel = addMdl }
             let cmd = UnitsList.Msg.LoadUnitsForProject proj.Id |> UnitsListMsg |> Cmd.ofMsg
-            let cmd2 = AddUnit.Msg.UpdateColumnSettings proj.ColumnSettings |> AddUnitMsg |> Cmd.ofMsg
-            model, [ cmd; cmd2 ] |> Cmd.batch
-        | ProjectSettings.UpdatedColumnSettings newProj ->
-            let cmd1 = UnitsList.Msg.UpdatedColumnSettings newProj |> UnitsListMsg |> Cmd.ofMsg
-            let cmd2 = AddUnit.Msg.UpdateColumnSettings newProj |> AddUnitMsg |> Cmd.ofMsg
+            let cmd2 = UnitsList.Msg.External (UnitsList.ExternalMsg.ProjectChange proj) |> UnitsListMsg |> Cmd.ofMsg
+            let cmd3 = AddUnit.Msg.UpdateColumnSettings proj.ColumnSettings |> AddUnitMsg |> Cmd.ofMsg
+            model, [ cmd; cmd2; cmd3 ] |> Cmd.batch
+        | ProjectSettings.ProjectLoaded (Error _) ->
+            { model with ShowSpinner = false }, Cmd.none
+        | ProjectSettings.UpdatedColumnSettings cs ->
+            let cmd1 = UnitsList.Msg.External (UnitsList.ExternalMsg.ColumnSettingsChange cs) |> UnitsListMsg |> Cmd.ofMsg
+            let cmd2 = AddUnit.Msg.UpdateColumnSettings cs |> AddUnitMsg |> Cmd.ofMsg
             model, [ cmd1 ; cmd2 ] |> Cmd.batch
         | _ -> model, Cmd.none
 
@@ -192,6 +194,10 @@ let handleUnitsListMsg (msg : UnitsList.Msg) (model : Model) =
         | UnitsList.LoadUnitsResponse _
         | UnitsList.LoadUnitsFailure _ ->
             { model with ShowSpinner = false }, Cmd.none
+        | UnitsList.UnitAddSuccess ->
+            let extMsg = AddUnit.ExternalMsg.AddNewUnitSuccess
+            let msg' = AddUnit.External extMsg
+            model, Cmd.ofMsg (AddUnitMsg msg' )
         | _ -> model, Cmd.none
 
     let cmds = [ (Cmd.map UnitsListMsg unitsCmd); newMsg ] |> Cmd.batch
@@ -210,7 +216,7 @@ let handleProjectsListMsg (msg : ProjectsList.Msg) (model : Model) =
             { model with ShowSpinner = false }, Cmd.none
         | ProjectsList.DefaultProjectCreated proj ->
             printfn "calling project lists update"
-            let settingsCmd = Cmd.ofMsg (ProjectSettings.Msg.ProjectLoaded proj) |> Cmd.map ProjectSettingsMsg
+            let settingsCmd = Cmd.ofMsg (ProjectSettings.Msg.ProjectLoaded (Ok proj)) |> Cmd.map ProjectSettingsMsg
             { model with ShowSpinner = false; ProjectsListModel = listMdl }, settingsCmd
         | ProjectsList.ProjectSelected proj ->
             let cmd = Cmd.ofMsg (ProjectSettings.Msg.MaybeLoadProject (Some proj.Id)) |> Cmd.map ProjectSettingsMsg
@@ -220,7 +226,7 @@ let handleProjectsListMsg (msg : ProjectsList.Msg) (model : Model) =
     { mdl with ProjectsListModel = listMdl }, cmds
 
 let update (msg : Msg) (model : Model) : (Model * Cmd<Msg>)=
-    printfn "in root update for msg %A" msg
+    //printfn "in root update for msg %A" msg
     match msg with
     | Start ->
         let loadProjectsCmd = Cmd.ofMsg (ProjectsList.Msg.LoadAllProjects)

@@ -41,7 +41,7 @@ nuget Fable.React
 nuget Fable.Promise
 nuget Fulma
 nuget Fable.SimpleHttp
-
+nuget Elmish.DragAndDrop
 
 nuget FSharp.Control.AsyncRx ~> 1.6
 nuget Fable.Reaction ~> 3.5

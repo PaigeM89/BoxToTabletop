@@ -4,6 +4,8 @@ open System.Data
 open BoxToTabletop.Domain
 open BoxToTabletop.Domain.Types
 open System
+open Fable.SimpleHttp
+
 module Core =
 
     type Updates =
@@ -74,10 +76,26 @@ module Promises =
         return! Fetch.tryPut(url, data, decoder= decoder, headers = headers)
     }
 
-    let loadUnitsForProject (config : Config.T) (projectId : Guid) = promise {
+    let loadUnitsForProject (config : Config.T) (projectId : Guid) = async {
+//        let url = Project.UnitRoutes.GETALL() |> buildRoute config <| projectId
+//        let decoder = Types.Unit.DecodeMany
+//        return! Fetch.tryGet(url, decoder = decoder)
         let url = Project.UnitRoutes.GETALL() |> buildRoute config <| projectId
-        let decoder = Types.Unit.DecodeMany
-        return! Fetch.tryGet(url, decoder = decoder)
+        let! response =
+            Http.request url
+            |> Http.method GET
+            |> Http.header (Headers.accept "application/json")
+            |> Http.send
+
+        if response.statusCode = 200 then
+            let decoder : Thoth.Json.Decoder<Types.Unit list> = Types.Unit.DecodeMany
+            let body = response.responseText
+            let decoded = Thoth.Json.Decode.fromString decoder body
+            return decoded
+        elif response.statusCode = 204 then
+            return Ok []
+        else
+            return Error (sprintf "Get All Units returned code %i" response.statusCode)
     }
 
     let deleteUnit (config : Config.T) (projectId : Guid) (unitId : Guid) : Promise<unit> = promise {
@@ -91,10 +109,10 @@ module Promises =
         return! Fetch.get(url, decoder = decoder)
     }
 
-    let loadProject (config : Config.T) (id : Guid) : Promise<Project> = promise {
+    let loadProject (config : Config.T) (id : Guid) = promise {
         let url = Project.GET() |> buildRoute config <| id
         let decoder = Types.Project.Decoder
-        return! Fetch.get(url, decoder = decoder)
+        return! Fetch.tryGet(url, decoder = decoder)
     }
 
     let updateProject (config : Config.T) (project : Project) : Promise<Project> = promise {
@@ -111,8 +129,6 @@ module Promises =
         let payload = UnitPriority.EncodeList updates
         return! Fetch.tryPut(url, payload, decoder = decoder)
     }
-
-    open Fable.SimpleHttp
 
     let updateUnitPriorities2 (config : Config.T) (projId : Guid) (updates : UnitPriority list) = async {
         let url = Project.Priorities.PUT() |> buildRoute config <| projId

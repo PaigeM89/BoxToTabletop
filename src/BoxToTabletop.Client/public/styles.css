@@ -3,7 +3,7 @@
 }
 
 .numeric-input-width {
-    width: 50%;
+    width: 100%;
 }
 
 .list-units-table {
@@ -27,4 +27,20 @@
 
 .header {
     font-family: "Helvetica Neue", sans-serif;
+}
+
+.no-padding-section {
+    padding: 0 0 0 0 !important;
+}
+
+.row-number {
+    -webkit-user-drag: element;
+    padding-top: 2px;
+}
+
+.row-number-label {
+    #padding-top: 1px;
+    padding-left: 10px;
+    font-family: "Helvetica Neue", sans-serif;
+    font-size: larger;
 }

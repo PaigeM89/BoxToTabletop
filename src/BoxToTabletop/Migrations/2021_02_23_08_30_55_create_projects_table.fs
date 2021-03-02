@@ -24,7 +24,7 @@ ALTER TABLE units
 CREATE TABLE unit_priorities (
   id uuid NOT NULL PRIMARY KEY,
   project_id uuid NOT NULL,
-  priorities : jsonb NOT NULL
+  priorities jsonb NOT NULL
 );
 
 ALTER TABLE unit_priorities

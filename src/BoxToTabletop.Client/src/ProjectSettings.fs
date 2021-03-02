@@ -40,7 +40,7 @@ module ProjectSettings =
     type Msg =
     | Noop
     | MaybeLoadProject of projectId : Guid option
-    | ProjectLoaded of project : Project
+    | ProjectLoaded of Result<Project, Thoth.Fetch.FetchError>
     | ProjectLoadFailed of exn
     | UpdateProject of project : Project
     | UpdateProjectSuccess of project : Project
@@ -130,9 +130,12 @@ module ProjectSettings =
             | Some projId -> ApiCalls.loadProject model projId
             | None ->
                 { model with Project = None }, Cmd.none
-        | ProjectLoaded proj ->
+        | ProjectLoaded (Ok proj) ->
             let mdl = Model.setProject model proj
             mdl, Cmd.none
+        | ProjectLoaded (Error e) ->
+            printfn "%A" e
+            model, Cmd.none
         | ProjectLoadFailed e ->
             printfn "%A" e
             model, Cmd.none
