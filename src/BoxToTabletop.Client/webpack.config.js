@@ -24,8 +24,17 @@ var commonPlugins = [
     })
 ];
 
+// If we're running webpack-dev-server, assume we're in development
+var isProduction = !hasArg(/webpack-dev-server/);
+var outputWebpackStatsAsJson = hasArg('--json');
+
+if (!outputWebpackStatsAsJson) {
+    console.log("Bundling CLIENT for " + (isProduction ? "production" : "development") + "...");
+}
+
+
 module.exports = {
-    mode: "development",
+    mode: isProduction ? 'production' : 'development',
     entry: "./src/App.fsproj",
     // entry: {
     //     app: [resolve(CONFIG.fsharpEntry)]
@@ -54,4 +63,10 @@ module.exports = {
 
 function resolve(filePath) {
     return path.isAbsolute(filePath) ? filePath : path.join(__dirname, filePath);
+}
+
+function hasArg(arg) {
+    return arg instanceof RegExp
+        ? process.argv.some(x => arg.test(x))
+        : process.argv.indexOf(arg) !== -1;
 }

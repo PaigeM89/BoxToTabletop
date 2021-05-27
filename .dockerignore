@@ -1,0 +1,31 @@
+# ignore everything
+**
+bin/
+obj/
+tests/
+docs/
+.vscode/
+.idea/
+.ionide/
+.git/
+.fake/
+.github/
+docker-compose.yml
+**/obj/project.assets.json
+sql/
+bin/
+dist/
+.dockerignore
+unzip/
+
+# allow some stuff
+!.config/
+!.paket/
+!src/
+**/bin/
+**/obj/
+!build.sh
+!build.fsx
+!**/.DS_STORE
+!**.fsproj
+!**.fs

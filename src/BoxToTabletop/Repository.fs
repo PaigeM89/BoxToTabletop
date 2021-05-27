@@ -10,31 +10,18 @@ open System.Threading.Tasks
 open FsToolkit.ErrorHandling
 open Npgsql.FSharp
 
-//module IDbConnection =
-//    open System.Data
-//    open Dapper
-//    type LogFn = string * Map<string, obj> -> unit
-//
-//    let query1<'a> (this:IDbConnection) trans timeout (logFunction:LogFn option) (query, pars) =
-//        if logFunction.IsSome then (query, pars) |> logFunction.Value
-//        this.QueryAsync<'a>(query, pars, transaction = Option.toObj trans, commandTimeout = Option.toNullable timeout)
-//
-//type IDbConnection with
-//    member this.SelectPly<'a>(q:SelectQuery, ?trans:IDbTransaction, ?timeout: int, ?logfunction) = Ply.Ply. {
-//        return! q |> Deconstructor.select<'a> |> IDbConnection.query1<'a> this trans timeout logfunction
-//    }
-
-type CreateConn = unit -> System.Data.IDbConnection
-
 let createDbConnection (connstr : string) () : IDbConnection =
     let props : Sql.SqlProps = Sql.connect connstr
     Npgsql.FSharp.Sql.createConnection props :> IDbConnection
 
-let loadUnit (conn : CreateConn) (id : Guid) () =
+type CreateConn = unit -> System.Data.IDbConnection
+
+let loadUnit (conn : CreateConn) (id : Guid) =
     select {
         table "units"
         where (eq "id" id)
     } |> conn().SelectAsync<Unit>
+    |> Task.map (Seq.map (fun x -> x.ToDomainType()) >> Seq.tryHead)
 
 let loadUnits (conn : CreateConn) (projId : Guid) =
     select {
@@ -58,10 +45,10 @@ let updateUnit (conn : CreateConn) (unit : Unit) =
         where (eq "id" unit.id)
     } |> conn().UpdateAsync
 
-let deleteUnit (conn : CreateConn) (projId : Guid) (id : Guid) =
+let deleteUnit (conn : CreateConn) (id : Guid) =
     delete {
         table "units"
-        where (eq "id" id + eq "project_id" projId)
+        where (eq "id" id)
     } |> conn().DeleteAsync
 
 let loadAllProjects (conn : CreateConn) =
@@ -96,7 +83,6 @@ let updateProject (conn : CreateConn) (project : DbTypes.Project) =
 let updatePriority (conn : CreateConn) (projectId : Guid) (unitId : Guid) (priority : int) =
     update {
         table "units"
-        //set priority = priority
         set {| priority = priority |}
         where (eq "id"  unitId)
     } |> conn().UpdateAsync

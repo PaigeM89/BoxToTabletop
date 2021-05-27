@@ -4,13 +4,12 @@ open BoxToTabletop.Domain.Types
 open Browser.Types
 open Fulma
 open Elmish
+open Elmish.React
 open System
 
 open BoxToTabletop.Domain
 
 module ProjectSettings =
-    open FSharp.Control.AsyncRx
-    open Fable.Reaction
 
     type Model = {
         //Name : string
@@ -122,7 +121,6 @@ module ProjectSettings =
 
 
     let update (model : Model) (msg : Msg) =
-        printfn "In project settings with msg %A" msg
         match msg with
         | Noop -> model, Cmd.none
         | MaybeLoadProject projectIdOpt ->
@@ -147,5 +145,3 @@ module ProjectSettings =
             model, Cmd.none
         | UpdatedColumnSettings cs ->
             ApiCalls.tryUpdateColumnSettings model cs
-            //ApiCalls.updateProject { model with ColumnSettings = Some settings }
-            //{ model with ColumnSettings = Some settings }, Cmd.none

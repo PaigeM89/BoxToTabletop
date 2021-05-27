@@ -132,7 +132,7 @@ module AddUnit =
         let view model dispatch =
             let partial = model.PartialData
             let cs = model.ColumnSettings
-            printfn "column settings when drawing add unit is %A" cs
+            // printfn "column settings when drawing add unit is %A" cs
             let func (ev : Browser.Types.Event) transform =
                 let c = Parsing.parseIntOrZero ev.Value
                 UpdatePartialData (transform partial c)
@@ -164,7 +164,6 @@ module AddUnit =
     let update model msg =
         match msg with
         | UpdateColumnSettings cs ->
-            printfn "Updating add unit model with column settings %A" cs
             { model with Model.ColumnSettings = cs }, Cmd.none
         | UpdatePartialData np ->
             { model with PartialData = np }, Cmd.none
@@ -177,8 +176,6 @@ module AddUnit =
                 Model.toggleShowErrors true model , Cmd.none
         | AddNewUnit _ ->
             model, Cmd.none
-//        | AddNewUnitSuccess ->
-//            { model with PartialData = PartialData.Init() }, Cmd.none
         | ShowInputErrors ->
             Model.toggleShowErrors false model, Cmd.none
         | External (AddNewUnitSuccess) ->

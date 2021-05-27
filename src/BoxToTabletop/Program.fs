@@ -15,7 +15,6 @@ module DatabaseInitialization =
         |> Sql.username "postgres"
         |> Sql.password "postgres"
         |> Sql.port 5432
-        //|> Sql.formatConnectionString
 
     let createDbConnection (bldr : NpgsqlConnectionStringBuilder) =
         Sql.connect (bldr.ConnectionString)
@@ -116,6 +115,7 @@ module Main =
         {
             Routing.Dependencies.createConnection = createConnection
             Routing.Dependencies.loadAllUnits = Repository.loadUnits
+            Routing.Dependencies.loadUnit = Repository.loadUnit
             Routing.Dependencies.saveUnit = Repository.insertUnit
             Routing.Dependencies.updateUnit = Repository.updateUnit
             Routing.Dependencies.deleteUnit = Repository.deleteUnit
@@ -126,6 +126,7 @@ module Main =
             Routing.Dependencies.updatePriority = Repository.updatePriority
         }
 
+    
 
     [<EntryPoint>]
     let main (argv: string array) =
@@ -141,6 +142,7 @@ module Main =
             let config = Configuration.ApplicationConfig.Default()
             let connstr = config.PostgresConfig.PostgresConnectionString()
             MigrationRunner.run connstr
+
             let deps = Repository.createDbConnection connstr |> createDependencies
             let host = BoxToTabletop.Webhost.buildHost config deps
 

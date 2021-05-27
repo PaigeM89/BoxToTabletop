@@ -2,8 +2,9 @@
 
 This project helps you log & track your model backlog, from building through painting and being tabletop ready. If you have a pile of boxes or a collection of sprues, this project helps you manage that madness and watch your progress as you work through it.
 
-MPV:
+MVP:
 * drag and drop
+  * workarounds
 * logins - google
 * batch events to send to avoid overhwelming the server
     * with per-action updates when editing a row, this is a very strict requirement
@@ -15,8 +16,11 @@ debounce for batching?
 
 https://thoth-org.github.io/Thoth.Elmish.Debouncer/
 
+New FSharp.Dapper for DB?
+
 Requirements: 
 * projects & categories
+    * Tree view with N levels, N options at root
     * page loader?
     * switches
 * account settings
@@ -25,7 +29,8 @@ Requirements:
     * switches
     * dark mode
     * name (changeable?)
-* created & updated timestamps  
+* created & updated timestamps
+    * set your own start, end dates
 * sharing links
     * add friends
     * set account private
@@ -35,6 +40,7 @@ Requirements:
 * setting to not do individual counts each step
 * export to CSV
 * timelines w/ goals, show progress
+* Fider for feedback (once public)
 
 minor changes to make:
 * make add unit box thing collapsable
@@ -43,6 +49,9 @@ minor changes to make:
 far future: 
 * integrate math
 * integrate crusade tracker
+
+Look into: 
+* https://bartoszsypytkowski.com/dealing-with-complex-dependency-injection-in-f/
 
 ---
 

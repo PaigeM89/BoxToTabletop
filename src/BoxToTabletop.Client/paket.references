@@ -3,6 +3,7 @@ Fable.Core
 Fable.Browser.Dom
 Fable.Fetch
 Thoth.Json
+Thoth.Elmish.Debouncer
 Fable.Promise
 Thoth.Fetch
 FSharp.Control.AsyncRx

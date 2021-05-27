@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
@@ -8,18 +8,19 @@
     <Compile Include="../../Shared/ResizeArray.fs" />
     <Compile Include="../../Shared/Types.fs" />
     <Compile Include="../../Shared/Routes.fs" />
-    <Compile Include="ReactDND.fs" />
+    <Compile Include="AlertMessage.fs" />
+    <!-- <Compile Include="ReactDND.fs" /> -->
     <Compile Include="Core.fs" />
     <Compile Include="ProjectSettings.fs" />
     <Compile Include="AddUnit.fs" />
+    <!-- <Compile Include="UnitsList.fs" /> -->
     <Compile Include="UnitsList.fs" />
     <Compile Include="ProjectsList.fs" />
-    <Compile Include="AlertMessage.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
-  <ItemGroup>
+  <!-- <ItemGroup>
     <PackageReference Include="Fable.Browser.Dom" Version="2.2.0" />
     <PackageReference Include="Fable.Core" Version="3.2.3" />
-  </ItemGroup>
+  </ItemGroup> -->
   <Import Project="..\..\..\.paket\Paket.Restore.targets" />
 </Project>

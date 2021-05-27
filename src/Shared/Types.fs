@@ -56,21 +56,19 @@ module Types =
             Decode.list Unit.Decoder
 
         static member Encoder (unit : Unit) =
-            let v =
-                Encode.object
-                    [
-                        "id", Encode.guid unit.Id
-                        "projectId", Encode.guid unit.ProjectId
-                        "name", Encode.string unit.Name
-                        "models", Encode.int unit.Models
-                        "assembled", Encode.int unit.Assembled
-                        "primed", Encode.int unit.Primed
-                        "painted", Encode.int unit.Painted
-                        "based", Encode.int unit.Based
-                        "priority", Encode.int unit.Priority
-                    ]
-            printfn "encoded unit is %s" (v.ToString())
-            v
+            Encode.object
+                [
+                    "id", Encode.guid unit.Id
+                    "projectId", Encode.guid unit.ProjectId
+                    "name", Encode.string unit.Name
+                    "models", Encode.int unit.Models
+                    "assembled", Encode.int unit.Assembled
+                    "primed", Encode.int unit.Primed
+                    "painted", Encode.int unit.Painted
+                    "based", Encode.int unit.Based
+                    "priority", Encode.int unit.Priority
+                ]
+            
 
     type UnitPriority = {
         UnitId : Guid

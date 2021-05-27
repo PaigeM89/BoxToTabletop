@@ -10,28 +10,33 @@ NUGET
     Dapper.FSharp (1.16)
       Dapper (>= 2.0.30) - restriction: >= netstandard2.0
       FSharp.Core (>= 4.7) - restriction: >= netstandard2.0
-    Elmish.DragAndDrop (0.1)
-      Fable.Browser.Dom (>= 2.2) - restriction: >= netstandard2.0
-      Fable.Browser.Event (>= 1.2.1) - restriction: >= netstandard2.0
-      Fable.Core (>= 3.2.4) - restriction: >= netstandard2.0
+    Elmish.DragAndDrop (0.3.0-alpha02)
+      Fable.Browser.Dom (>= 2.4) - restriction: >= netstandard2.0
+      Fable.Browser.Event (>= 1.4) - restriction: >= netstandard2.0
+      Fable.Core (>= 3.2.7) - restriction: >= netstandard2.0
       Fable.Elmish (>= 3.1) - restriction: >= netstandard2.0
-      Fable.React (>= 7.2) - restriction: >= netstandard2.0
-      FSharp.Core (>= 5.0) - restriction: >= netstandard2.0
+      Fable.Elmish.Throttle (>= 0.1) - restriction: >= netstandard2.0
+      Fable.React (>= 7.4) - restriction: >= netstandard2.0
+      FSharp.Core (>= 5.0.1) - restriction: >= netstandard2.0
     Expecto (9.0.2)
       FSharp.Core (>= 4.6) - restriction: || (>= net461) (>= netstandard2.0)
       Mono.Cecil (>= 0.11.2) - restriction: || (>= net461) (>= netstandard2.0)
     Fable.Browser.Blob (1.1) - restriction: >= netstandard2.0
       Fable.Core (>= 3.0) - restriction: >= netstandard2.0
       FSharp.Core (>= 4.6.2) - restriction: >= netstandard2.0
-    Fable.Browser.Dom (2.2)
+    Fable.Browser.Dom (2.4)
       Fable.Browser.Blob (>= 1.1) - restriction: >= netstandard2.0
-      Fable.Browser.Event (>= 1.2.1) - restriction: >= netstandard2.0
+      Fable.Browser.Event (>= 1.3) - restriction: >= netstandard2.0
       Fable.Browser.WebStorage (>= 1.0) - restriction: >= netstandard2.0
       Fable.Core (>= 3.0) - restriction: >= netstandard2.0
-      FSharp.Core (>= 4.7.2) - restriction: >= netstandard2.0
-    Fable.Browser.Event (1.2.1) - restriction: >= netstandard2.0
+      FSharp.Core (>= 5.0) - restriction: >= netstandard2.0
+    Fable.Browser.Event (1.4) - restriction: >= netstandard2.0
+      Fable.Browser.Gamepad (>= 1.0) - restriction: >= netstandard2.0
       Fable.Core (>= 3.0) - restriction: >= netstandard2.0
-      FSharp.Core (>= 4.7) - restriction: >= netstandard2.0
+      FSharp.Core (>= 5.0) - restriction: >= netstandard2.0
+    Fable.Browser.Gamepad (1.0) - restriction: >= netstandard2.0
+      Fable.Core (>= 3.0) - restriction: >= netstandard2.0
+      FSharp.Core (>= 4.7.2) - restriction: >= netstandard2.0
     Fable.Browser.WebSocket (1.0.1) - restriction: >= netstandard2.0
       Fable.Browser.Event (>= 1.2.1) - restriction: >= netstandard2.0
       Fable.Core (>= 3.0) - restriction: >= netstandard2.0
@@ -45,7 +50,7 @@ NUGET
       Fable.Browser.Event (>= 1.2.1) - restriction: >= netstandard2.0
       Fable.Core (>= 3.0) - restriction: >= netstandard2.0
       FSharp.Core (>= 4.7) - restriction: >= netstandard2.0
-    Fable.Core (3.2.4)
+    Fable.Core (3.2.7)
       FSharp.Core (>= 4.7.2) - restriction: >= netstandard2.0
     Fable.Elmish (3.1)
       Fable.Core (>= 3.0) - restriction: >= netstandard2.0
@@ -55,6 +60,12 @@ NUGET
       Fable.Elmish (>= 3.0) - restriction: >= netstandard2.0
       Fable.React (>= 5.1) - restriction: >= netstandard2.0
       FSharp.Core (>= 4.6.2) - restriction: >= netstandard2.0
+    Fable.Elmish.Throttle (0.1) - restriction: >= netstandard2.0
+      Fable.Browser.Dom (>= 2.4) - restriction: >= netstandard2.0
+      Fable.Core (>= 3.2.7) - restriction: >= netstandard2.0
+      Fable.Elmish (>= 3.1) - restriction: >= netstandard2.0
+      Fable.Promise (>= 2.2) - restriction: >= netstandard2.0
+      FSharp.Core (>= 5.0.1) - restriction: >= netstandard2.0
     Fable.Fetch (2.2)
       Fable.Browser.Blob (>= 1.1) - restriction: >= netstandard2.0
       Fable.Core (>= 3.0) - restriction: >= netstandard2.0
@@ -70,7 +81,7 @@ NUGET
     Fable.Promise (2.2)
       Fable.Core (>= 3.1.5) - restriction: >= netstandard2.0
       FSharp.Core (>= 5.0) - restriction: >= netstandard2.0
-    Fable.React (7.2)
+    Fable.React (7.4)
       Fable.Browser.Dom (>= 2.0.1) - restriction: >= netstandard2.0
       Fable.Core (>= 3.1.5) - restriction: >= netstandard2.0
       FSharp.Core (>= 4.7.2) - restriction: >= netstandard2.0
@@ -158,7 +169,7 @@ NUGET
       System.Security.Permissions (>= 4.4.1) - restriction: && (< net461) (>= netstandard2.0)
     FSharp.Control.AsyncRx (1.6)
       FSharp.Core (>= 4.7.2) - restriction: >= netstandard2.0
-    FSharp.Core (5.0)
+    FSharp.Core (5.0.1)
     FSharpx.Collections (2.1.3)
       FSharp.Core (>= 4.3.4) - restriction: || (>= net45) (>= netstandard2.0)
     FsToolkit.ErrorHandling (2.0)
@@ -995,6 +1006,12 @@ NUGET
       FSharp.Core (>= 4.1.17) - restriction: || (&& (>= net45) (< net46) (< netstandard1.6)) (&& (< net45) (>= netstandard1.6)) (&& (>= net46) (< netstandard1.6)) (>= net47)
       NETStandard.Library (>= 1.6.1) - restriction: && (< net45) (>= netstandard1.6)
       System.ValueTuple (>= 4.4) - restriction: || (&& (>= net45) (< net46) (< netstandard1.6)) (&& (< net45) (>= netstandard1.6)) (&& (>= net46) (< netstandard1.6)) (>= net47)
+    Thoth.Elmish.Debouncer (1.0)
+      Fable.Core (>= 3.0) - restriction: >= netstandard2.0
+      Fable.Elmish (>= 3.0) - restriction: >= netstandard2.0
+      Fable.Promise (>= 2.0) - restriction: >= netstandard2.0
+      Fable.React (>= 5.1) - restriction: >= netstandard2.0
+      FSharp.Core (>= 4.6.2) - restriction: >= netstandard2.0
     Thoth.Fetch (2.0)
       Fable.Core (>= 3.1.5) - restriction: >= netstandard2.0
       Fable.Fetch (>= 2.1) - restriction: >= netstandard2.0

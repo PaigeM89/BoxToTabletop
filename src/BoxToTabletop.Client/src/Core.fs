@@ -49,14 +49,18 @@ module Promises =
     let buildStaticRoute (config : Config.T) route =
         Routes.combine config.ServerUrl route
 
+    let buildRouteSimple (config : Config.T) route = Routes.combine config.ServerUrl route
+
     let buildRoute (config : Config.T) (routeEval) =
         fun x -> Routes.combine config.ServerUrl (sprintf routeEval x)
 
     let buildRoute2 (config : Config.T) routeEval =
         fun (x, y) -> Routes.combine config.ServerUrl (sprintf routeEval x y)
 
+    let addQueryParam qparam qvalue route = route + (sprintf "?%s=%s" qparam qvalue)
+
     let createUnit (config : Config.T) (unit : Types.Unit) = promise {
-        let url = Project.UnitRoutes.POST() |> buildRoute config <| unit.ProjectId
+        let url = UnitRoutes.Root |> buildRouteSimple config
         let data = Types.Unit.Encoder unit
         let _decoder = Types.Unit.Decoder
         let headers = [
@@ -66,8 +70,7 @@ module Promises =
     }
 
     let updateUnit (config : Config.T) (unit : Types.Unit) = promise {
-        //let url = sprintf "http://localhost:5000/api/v1/units/%O" (unit.Id.ToString("N"))
-        let url = Project.UnitRoutes.PUT() |> buildRoute2 config <| (unit.ProjectId, unit.Id)
+        let url = UnitRoutes.PUT() |> buildRoute config <| unit.Id
         let data = Types.Unit.Encoder unit
         let headers = [
             HttpRequestHeaders.Origin "*"
@@ -77,10 +80,7 @@ module Promises =
     }
 
     let loadUnitsForProject (config : Config.T) (projectId : Guid) = async {
-//        let url = Project.UnitRoutes.GETALL() |> buildRoute config <| projectId
-//        let decoder = Types.Unit.DecodeMany
-//        return! Fetch.tryGet(url, decoder = decoder)
-        let url = Project.UnitRoutes.GETALL() |> buildRoute config <| projectId
+        let url = UnitRoutes.Root |> buildRouteSimple config |> addQueryParam "projectId" (string projectId)
         let! response =
             Http.request url
             |> Http.method GET
@@ -99,31 +99,48 @@ module Promises =
     }
 
     let deleteUnit (config : Config.T) (projectId : Guid) (unitId : Guid) : Promise<unit> = promise {
-        let url = Project.UnitRoutes.DELETE() |> buildRoute2 config <| (projectId, unitId )
+        let url = UnitRoutes.DELETE() |> buildRoute config <| unitId
         return! Fetch.delete(url)
     }
 
+    let transferUnit (config : Config.T) unitId newProjectId = async {
+        let url = UnitRoutes.Transfer.POST() |> buildRoute config <| unitId
+        let payload = Thoth.Json.Encode.guid newProjectId |> Thoth.Json.Encode.toString 0
+        let! response =
+            Http.request url
+            |> Http.method POST
+            |> Http.content (BodyContent.Text payload)
+            |> Http.send
+
+        printfn "Sending unit transfer request to url %A" url
+
+        if response.statusCode = 200 then
+            return Ok unitId
+        else
+            return Error response.statusCode
+    }
+
     let loadAllProjects (config : Config.T) : Promise<Project list> = promise {
-        let url = Project.GETALL |> buildStaticRoute config
+        let url = ProjectRoutes.GETALL |> buildStaticRoute config
         let decoder = Types.Project.DecodeMany
         return! Fetch.get(url, decoder = decoder)
     }
 
     let loadProject (config : Config.T) (id : Guid) = promise {
-        let url = Project.GET() |> buildRoute config <| id
+        let url = ProjectRoutes.GET() |> buildRoute config <| id
         let decoder = Types.Project.Decoder
         return! Fetch.tryGet(url, decoder = decoder)
     }
 
     let updateProject (config : Config.T) (project : Project) : Promise<Project> = promise {
-        let url = Project.PUT() |> buildRoute config <| project.Id
+        let url = ProjectRoutes.PUT() |> buildRoute config <| project.Id
         printfn "url to update project is %A" url
         let decoder = Types.Project.Decoder
         return! Fetch.put(url, project, decoder = decoder)
     }
 
     let updateUnitPriorities (config : Config.T) (projId : Guid) (updates : UnitPriority list) : Promise<Result<UnitPriority list, FetchError>> = promise {
-        let url = Project.Priorities.PUT() |> buildRoute config <| projId
+        let url = ProjectRoutes.Priorities.PUT() |> buildRoute config <| projId
         printfn "sending updates to %A: %A" url updates
         let decoder = Types.UnitPriority.DecodeList
         let payload = UnitPriority.EncodeList updates
@@ -131,7 +148,7 @@ module Promises =
     }
 
     let updateUnitPriorities2 (config : Config.T) (projId : Guid) (updates : UnitPriority list) = async {
-        let url = Project.Priorities.PUT() |> buildRoute config <| projId
+        let url = ProjectRoutes.Priorities.PUT() |> buildRoute config <| projId
         let encoded = UnitPriority.EncodeList updates
         let payload = Thoth.Json.Encode.toString 0 encoded
         let! response =

@@ -19,7 +19,7 @@ let Root = "/api/v1"
 // i don't like any of the ways I'm doing these
 
 
-module Project =
+module ProjectRoutes =
     let Root = Root %% "projects"
     let GETALL = Root
     let GET() = PrintfFormat<_,_,_,_,_> (Root %% "%O")
@@ -32,6 +32,7 @@ module Project =
         let PrioritiesRoot = "priorities"
         let PUT() = PrintfFormat<_,_,_,_,_> (Root %% "%O" %% PrioritiesRoot)
 
+    [<Obsolete("Use the root level UnitRoutes", true)>]
     module UnitRoutes =
         // all units are accessed from within a project
         let Root = Root %% "%O/units"
@@ -46,3 +47,17 @@ module Project =
                 fun (unitId : Guid) -> Root %% b %% Units %% (sprintf "%O" unitId)
         let DELETE() = PrintfFormat<_,_,_,_,_> (Root %% "%O")
 
+        module Transfer =
+            let Root = Root %% "%O/transfer"
+            let POST() = PrintfFormat<_,_,_,_,_> Root
+
+module UnitRoutes =
+    let Root = Root %% "units"
+    let GET() = PrintfFormat<_,_,_,_,_> (Root %% "%O")
+    let PUT() = PrintfFormat<_,_,_,_,_> (Root %% "%O")
+    let DELETE() = PrintfFormat<_,_,_,_,_> (Root %% "%O")
+
+    // todo: this really should just be a PATCH on unit but that requires a lot more infrastructure
+    module Transfer =
+            let Root = Root %% "%O/transfer"
+            let POST() = PrintfFormat<_,_,_,_,_> Root
