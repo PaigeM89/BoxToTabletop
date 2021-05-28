@@ -102,6 +102,7 @@ module Main =
         | Version
         | Favorite_Color of string // Look in App.config
         | Run
+        | PostgresHost of hostname : string
         interface IArgParserTemplate with
             member s.Usage =
                 match s with
@@ -109,6 +110,7 @@ module Main =
                 | Version -> "Version of application"
                 | Favorite_Color _ -> "Favorite color"
                 | Run -> "Run the server"
+                | PostgresHost _ -> "Postgres hostname"
 
     type CreateConn = unit -> System.Data.IDbConnection
     let createDependencies (createConnection : unit -> System.Data.IDbConnection) =
@@ -126,7 +128,7 @@ module Main =
             Routing.Dependencies.updatePriority = Repository.updatePriority
         }
 
-    
+    open BoxToTabletop.Configuration
 
     [<EntryPoint>]
     let main (argv: string array) =
@@ -139,7 +141,8 @@ module Main =
         elif results.Contains Info then
             AssemblyInfo.printInfo()
         elif results.Contains Run then
-            let config = Configuration.ApplicationConfig.Default()
+            let postgresHost = results.GetResult (PostgresHost, defaultValue = "localhost")
+            let config = { PostgresConfig.Default() with PostgresHost = postgresHost} |> ApplicationConfig.Create
             let connstr = config.PostgresConfig.PostgresConnectionString()
             MigrationRunner.run connstr
 

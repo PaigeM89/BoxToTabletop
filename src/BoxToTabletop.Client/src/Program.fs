@@ -349,6 +349,11 @@ Program.mkProgram
     View.view
 // |> Program.withConsoleTrace
 |> Program.withReactBatched "root"
+#if DEBUG
 |> Program.runWith (Some "http://localhost:5000")
+#else
+// in release mode, point to nginx
+|> Program.runWith (Some "http://localhost:8092")
+#endif
 
 

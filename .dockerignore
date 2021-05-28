@@ -24,8 +24,12 @@ unzip/
 !src/
 **/bin/
 **/obj/
+!**/bin/local/Release/*
 !build.sh
 !build.fsx
 !**/.DS_STORE
 !**.fsproj
 !**.fs
+!paket.lock
+!paket.dependencies
+!BoxToTabletop.sln

@@ -48,3 +48,5 @@ type ApplicationConfig = {
     static member Default() = {
         PostgresConfig = PostgresConfig.Default()
     }
+
+    static member Create postgresConf = { PostgresConfig = postgresConf}
