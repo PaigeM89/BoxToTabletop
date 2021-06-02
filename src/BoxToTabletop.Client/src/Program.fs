@@ -25,6 +25,8 @@ type SpinnerState = {
 
 type Model = {
     Config : Config.T
+    LoginModel : Login.Model
+
     AddUnitModel : AddUnit.Model
     UnitsListModel : UnitsList.Model
     ProjectSettings : ProjectSettings.Model
@@ -41,6 +43,7 @@ type Model = {
         let dnd = DragAndDropModel.Empty()
         {
             Config = config
+            LoginModel = Login.Model.Empty()
             AddUnitModel = AddUnit.Model.Init(config)
             UnitsListModel = UnitsList.Model.Init(config, dnd)
             ProjectSettings = ProjectSettings.Model.Init(config)
@@ -67,18 +70,17 @@ let clearMessageById messageId model =
 
 let addSpinStart source (model : Model) =
     let spin = { model.SpinnerState with Spin = true; Sources = source :: model.SpinnerState.Sources }
-    printfn "spin state after adding spin of id %A is %A" source spin
     { model with SpinnerState = spin }
 
 let removeSpin source (model : Model) =
     let sources = model.SpinnerState.Sources |> List.filter (fun x -> x <> source)
     let spin = List.isEmpty sources |> not
     let newSpinState = { Spin = spin; Sources = sources}
-    printfn "spin state after removing spin of id %A is %A" source newSpinState
     { model with SpinnerState = newSpinState }
 
 type Msg =
 | Start
+| LoginMsg of Login.Msg
 | DndMsg of DragAndDropMsg
 | AddUnitMsg of AddUnit.Msg
 | UnitsListMsg of UnitsList.Msg
@@ -98,6 +100,16 @@ module View =
                 Fa.i [ Fa.Solid.Spinner; Fa.Spin ] []
             ] |> Some
         | false -> None
+
+    let tryShowUserInfo (model : Model) =
+        match model.LoginModel.User with
+        | Some user ->
+            printfn "Logged in User model is %A" user
+            let display =
+                Option.defaultValue "Unknown user" user.GivenName
+            Label.label [] [ str ("Welcome, " + display) ]
+        | None ->
+            Label.label [] [ str ("Welcome! Please log in to use the site. ") ]
 
     let navbar (model : Model) dispatch =
         let spinner = mapShowSpinner model
@@ -119,11 +131,26 @@ module View =
                     ]
                 ]
             ]
+            Navbar.Item.div [] [
+                tryShowUserInfo model
+            ]
             Navbar.End.div [] [
                 if Option.isSome spinner then Navbar.Item.div [] [ Option.get spinner ]
+                if model.LoginModel.User.IsSome then
+                    Navbar.Item.div [] [
+                        Button.button
+                            [ Button.OnClick (fun _ -> Login.Msg.TryLogout |> LoginMsg |> dispatch)]
+                            [ str "Log Out" ]
+                    ]
+                else
+                    Navbar.Item.div [] [
+                        Button.button
+                            [ Button.OnClick (fun _ -> Login.Msg.TryLogin |> LoginMsg |> dispatch)]
+                            [ str "Log In" ]
+                    ]
                 Navbar.Item.div [] [
                     Control.div [ ] [
-                        Button.a [ Button.Props [ Href "https://github.com/PaigeM89/D2DropCalc" ] ] [
+                        Button.a [ Button.Props [ Href "https://github.com/PaigeM89/BoxToTabletop" ] ] [
                             Icon.icon [] [
                                 Fa.i [ Fa.Brand.Github ] []
                             ]
@@ -321,6 +348,10 @@ let update (msg : Msg) (model : Model) : (Model * Cmd<Msg>) =
     | Start ->
         let loadProjectsCmd = Cmd.ofMsg (ProjectsList.Msg.LoadAllProjects)
         model, Cmd.map ProjectsListMsg loadProjectsCmd
+    | LoginMsg loginMsg ->
+        printfn "--PROGRAM.FS-- Login message is %A" loginMsg
+        let loginModel, loginCmd = Login.update loginMsg model.LoginModel
+        { model with LoginModel = loginModel }, (loginCmd  |> Cmd.map LoginMsg)
     | DndMsg dndMsg ->
         handleDndMsg dndMsg model
     | AddUnitMsg msg -> handleAddUnitMsg msg model
@@ -341,7 +372,10 @@ let init (url : string option) =
         | Some url -> Config.withServerUrl url config
         | None -> config
     let model = Model.InitWithConfig config
-    { model with Config = config}, Cmd.ofMsg Start
+    
+    let cmd = Login.createClient() |> Cmd.map LoginMsg
+
+    { model with Config = config}, [ Cmd.ofMsg Start; cmd ] |> Cmd.batch
 
 Program.mkProgram
     init

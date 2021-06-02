@@ -5,13 +5,23 @@
 // import 'node_modules/@fortawesome/fontawesome-free/css/all.css';
 // import 'node_modules/@fortawesome/fontawesome-free/js/all.js';
 
+
 var path = require("path");
 var HtmlWebpackPlugin = require('html-webpack-plugin');
 
+// If we're running webpack-dev-server, assume we're in development
+var isProduction = !hasArg(/webpack-dev-server/);
+
+const getOutputDir = (() => {
+    if (isProduction) {
+        return "./release";
+    } else {
+        return "./public";
+    }
+});
 
 var CONFIG = {
     indexHtmlTemplate: './src/index.html',
-    fsharpEntry : './src/Root.fs.js',
     outputDir: './public'
 };
 
@@ -24,8 +34,7 @@ var commonPlugins = [
     })
 ];
 
-// If we're running webpack-dev-server, assume we're in development
-var isProduction = !hasArg(/webpack-dev-server/);
+
 var outputWebpackStatsAsJson = hasArg('--json');
 
 if (!outputWebpackStatsAsJson) {
@@ -36,11 +45,7 @@ if (!outputWebpackStatsAsJson) {
 module.exports = {
     mode: isProduction ? 'production' : 'development',
     entry: "./src/App.fsproj",
-    // entry: {
-    //     app: [resolve(CONFIG.fsharpEntry)]
-    // },
     output: {
-        //path: path.join(__dirname, "./public"),
         path: resolve(CONFIG.outputDir),
         filename: "bundle.js",
     },
@@ -50,7 +55,13 @@ module.exports = {
         port: 8090,
     },
     module: {
-        rules: [{
+        rules: [
+        {
+            test: /\.tsx?$/,
+            use: 'ts-loader',
+            exclude: /node_modules/,
+        },
+        {
             test: /\.fs(x|proj)?$/,
             use: "fable-loader"
         },

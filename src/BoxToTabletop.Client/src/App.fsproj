@@ -8,6 +8,16 @@
     <Compile Include="../../Shared/ResizeArray.fs" />
     <Compile Include="../../Shared/Types.fs" />
     <Compile Include="../../Shared/Routes.fs" />
+    <!-- <Compile Include="./auth0/constants.fs" />
+    <Compile Include="./auth0/errors.fs" />
+    <Compile Include="./auth0/globals.fs" />
+    <Compile Include="./auth0/cache.fs" />
+    <Compile Include="./auth0/utils.fs" />
+    <Compile Include="./auth0/api.fs" />
+    <Compile Include="./auth0/Auth0Client.fs" />
+    <Compile Include="./auth0/index.fs" /> -->
+    <None Include="./auth0/login.js" />
+    <Compile Include="Login.fs" />
     <Compile Include="AlertMessage.fs" />
     <!-- <Compile Include="ReactDND.fs" /> -->
     <Compile Include="Core.fs" />
@@ -16,6 +26,7 @@
     <!-- <Compile Include="UnitsList.fs" /> -->
     <Compile Include="UnitsList.fs" />
     <Compile Include="ProjectsList.fs" />
+
     <Compile Include="Program.fs" />
   </ItemGroup>
   <!-- <ItemGroup>
