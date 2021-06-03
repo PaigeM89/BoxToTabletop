@@ -59,6 +59,16 @@ type Model = {
 
     static member Empty() =
         Config.T.Default() |> Model.InitWithConfig
+    
+    member this.RepopulateConfig() = 
+        let dnd = DragAndDropModel.Empty()
+        {
+            this with
+                AddUnitModel = AddUnit.Model.Init(this.Config)
+                UnitsListModel = UnitsList.Model.Init(this.Config, dnd)
+                ProjectSettings = ProjectSettings.Model.Init(this.Config)
+                ProjectsListModel = ProjectsList.Model.Init(this.Config, dnd)
+        }
 
 let addErrorMessage messageId message model =
     let msgs = model.ErrorMessages |> Map.add messageId message
@@ -104,9 +114,7 @@ module View =
     let tryShowUserInfo (model : Model) =
         match model.LoginModel.User with
         | Some user ->
-            printfn "Logged in User model is %A" user
-            let display =
-                Option.defaultValue "Unknown user" user.GivenName
+            let display = Option.defaultValue "Unknown user" user.GivenName
             Label.label [] [ str ("Welcome, " + display) ]
         | None ->
             Label.label [] [ str ("Welcome! Please log in to use the site. ") ]
@@ -348,8 +356,14 @@ let update (msg : Msg) (model : Model) : (Model * Cmd<Msg>) =
     | Start ->
         let loadProjectsCmd = Cmd.ofMsg (ProjectsList.Msg.LoadAllProjects)
         model, Cmd.map ProjectsListMsg loadProjectsCmd
+    | LoginMsg (Login.Msg.GetTokenSuccess token) ->
+        let loginModel, loginCmd = Login.update (Login.Msg.GetTokenSuccess token) model.LoginModel
+        let config = { model.Config with JwtToken = loginModel.JwtToken }
+        let startCmd = Cmd.ofMsg Start
+        let loginCmd = loginCmd  |> Cmd.map LoginMsg
+        let model = { model with Config = config }
+        (model.RepopulateConfig()), [ startCmd; loginCmd ] |> Cmd.batch
     | LoginMsg loginMsg ->
-        printfn "--PROGRAM.FS-- Login message is %A" loginMsg
         let loginModel, loginCmd = Login.update loginMsg model.LoginModel
         { model with LoginModel = loginModel }, (loginCmd  |> Cmd.map LoginMsg)
     | DndMsg dndMsg ->
@@ -375,7 +389,7 @@ let init (url : string option) =
     
     let cmd = Login.createClient() |> Cmd.map LoginMsg
 
-    { model with Config = config}, [ Cmd.ofMsg Start; cmd ] |> Cmd.batch
+    { model with Config = config}, cmd
 
 Program.mkProgram
     init

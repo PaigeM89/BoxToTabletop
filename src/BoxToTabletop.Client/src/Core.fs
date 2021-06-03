@@ -15,9 +15,11 @@ module Core =
 module Config =
     type T = {
         ServerUrl : string
+        JwtToken : string option
     } with
         static member Default() = {
             ServerUrl =  "http://localhost:5000"
+            JwtToken = None
         }
 
     let withServerUrl (serverUrl : string) (t : T) =
@@ -25,11 +27,50 @@ module Config =
 
 module Promises =
     open Fetch
+    open Thoth.Json
     open Thoth.Fetch
     open Fable.Core.JS
     open BoxToTabletop.Domain.Routes
     open Routes
     open Core
+
+    // type TokenResponse = {
+    //     access_token : string
+    //     token_type : string
+    // } with
+    //     static member Decoder : Decoder<TokenResponse> =
+    //         Decode.object (fun get -> 
+    //             {
+    //                 access_token = get.Required.Field "access_token" Decode.string
+    //                 token_type = get.Required.Field "token_type" Decode.string
+    //             })
+
+    // let getAccessToken() = promise {
+    //     let url = "https://dev-6duts2ta.us.auth0.com/oauth/token"
+    //     let headers = [
+    //         HttpRequestHeaders.ContentType "application/json"
+    //         HttpRequestHeaders.Origin "*"
+    //         HttpRequestHeaders.Custom ("Access-Control-Allow-Origin", "*")
+    //     ]
+    //     let request = 
+    //         {|
+    //             client_id = "3hT6zjjsWmoQqNlB5i89P06V6LO4dDA0"
+    //             client_secret = "uZcbteHZlzqf9dWaVLeFegQU23Q-XGHcoqqRcZMo-n7NkPxNGgxvZZ_gak9volDH"
+    //             audience = "http://localhost:5000"
+    //             grant_type = "client_credentials"
+    //         |}
+    //     let data = Thoth.Json.Encode.Auto.toString(0, request)
+    //     let decoder = TokenResponse.Decoder
+    //     return! Fetch.tryPost(url, data, decoder = decoder, headers = headers)
+    // }
+
+    let getBearer (config : Config.T) =
+        match config.JwtToken with
+        | Some t -> "Bearer " + t
+        | None -> "Bearer"
+
+    let getBearerHeader (config : Config.T) =
+        HttpRequestHeaders.Authorization (getBearer config)
 
     let printFetchError (fe : FetchError) =
         match fe with
@@ -65,6 +106,7 @@ module Promises =
         let _decoder = Types.Unit.Decoder
         let headers = [
             HttpRequestHeaders.Origin "*"
+            getBearerHeader config
         ]
         return! Fetch.tryPost(url, data, decoder = _decoder, headers = headers)
     }
@@ -74,6 +116,7 @@ module Promises =
         let data = Types.Unit.Encoder unit
         let headers = [
             HttpRequestHeaders.Origin "*"
+            getBearerHeader config
         ]
         let decoder = Types.Unit.Decoder
         return! Fetch.tryPut(url, data, decoder= decoder, headers = headers)
@@ -85,6 +128,7 @@ module Promises =
             Http.request url
             |> Http.method GET
             |> Http.header (Headers.accept "application/json")
+            |> Http.header (Headers.authorization (getBearer config))
             |> Http.send
 
         if response.statusCode = 200 then
@@ -100,7 +144,10 @@ module Promises =
 
     let deleteUnit (config : Config.T) (projectId : Guid) (unitId : Guid) : Promise<unit> = promise {
         let url = UnitRoutes.DELETE() |> buildRoute config <| unitId
-        return! Fetch.delete(url)
+        let headers = [
+            getBearerHeader config
+        ]
+        return! Fetch.delete(url, headers = headers)
     }
 
     let transferUnit (config : Config.T) unitId newProjectId = async {
@@ -109,6 +156,7 @@ module Promises =
         let! response =
             Http.request url
             |> Http.method POST
+            |> Http.header (Headers.authorization (getBearer config))
             |> Http.content (BodyContent.Text payload)
             |> Http.send
 
@@ -122,29 +170,39 @@ module Promises =
 
     let loadAllProjects (config : Config.T) : Promise<Project list> = promise {
         let url = ProjectRoutes.GETALL |> buildStaticRoute config
+        let headers = [
+            HttpRequestHeaders.Authorization (getBearer config)
+        ]
         let decoder = Types.Project.DecodeMany
-        return! Fetch.get(url, decoder = decoder)
+        return! Fetch.get(url, decoder = decoder, headers = headers)
     }
 
     let loadProject (config : Config.T) (id : Guid) = promise {
         let url = ProjectRoutes.GET() |> buildRoute config <| id
+        let headers = [
+            HttpRequestHeaders.Authorization (getBearer config)
+        ]
         let decoder = Types.Project.Decoder
-        return! Fetch.tryGet(url, decoder = decoder)
+        return! Fetch.tryGet(url, decoder = decoder, headers = headers)
     }
 
     let updateProject (config : Config.T) (project : Project) : Promise<Project> = promise {
         let url = ProjectRoutes.PUT() |> buildRoute config <| project.Id
-        printfn "url to update project is %A" url
+        let headers = [
+            HttpRequestHeaders.Authorization (getBearer config)
+        ]
         let decoder = Types.Project.Decoder
-        return! Fetch.put(url, project, decoder = decoder)
+        return! Fetch.put(url, project, decoder = decoder, headers = headers)
     }
 
     let updateUnitPriorities (config : Config.T) (projId : Guid) (updates : UnitPriority list) : Promise<Result<UnitPriority list, FetchError>> = promise {
         let url = ProjectRoutes.Priorities.PUT() |> buildRoute config <| projId
-        printfn "sending updates to %A: %A" url updates
+        let headers = [
+            HttpRequestHeaders.Authorization (getBearer config)
+        ]
         let decoder = Types.UnitPriority.DecodeList
         let payload = UnitPriority.EncodeList updates
-        return! Fetch.tryPut(url, payload, decoder = decoder)
+        return! Fetch.tryPut(url, payload, decoder = decoder, headers = headers)
     }
 
     let updateUnitPriorities2 (config : Config.T) (projId : Guid) (updates : UnitPriority list) = async {
@@ -156,6 +214,7 @@ module Promises =
             |> Http.method PUT
             |> Http.content (BodyContent.Text payload)
             |> Http.header (Headers.contentType "application/json")
+            |> Http.header (Headers.authorization (getBearer config))
             |> Http.send
 
         printfn "Status: %d" response.statusCode

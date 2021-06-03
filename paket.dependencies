@@ -25,6 +25,7 @@ nuget Serilog.AspNetCore
 nuget FsToolkit.ErrorHandling
 nuget FsToolkit.ErrorHandling.TaskResult
 nuget Thoth.Json.Net
+nuget Microsoft.AspNetCore.Authentication.JwtBearer
 
 nuget Thoth.Json ~> 5.1
 nuget Thoth.Elmish.Debouncer

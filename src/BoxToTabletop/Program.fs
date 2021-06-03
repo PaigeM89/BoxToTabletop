@@ -66,6 +66,7 @@ module Main =
     open Microsoft.Extensions.DependencyInjection
     open Giraffe
     open BoxToTabletop
+    open BoxToTabletop.Configuration
     open Serilog
 
     open Serilog.Core
@@ -97,20 +98,6 @@ module Main =
     LogProvider.setLoggerProvider (Providers.SerilogProvider.create ())
     Serilog.Log.Logger <- log
 
-    type CLIArguments =
-        | Info
-        | Version
-        | Favorite_Color of string // Look in App.config
-        | Run
-        | PostgresHost of hostname : string
-        interface IArgParserTemplate with
-            member s.Usage =
-                match s with
-                | Info -> "More detailed information"
-                | Version -> "Version of application"
-                | Favorite_Color _ -> "Favorite color"
-                | Run -> "Run the server"
-                | PostgresHost _ -> "Postgres hostname"
 
     type CreateConn = unit -> System.Data.IDbConnection
     let createDependencies (createConnection : unit -> System.Data.IDbConnection) =
@@ -128,29 +115,39 @@ module Main =
             Routing.Dependencies.updatePriority = Repository.updatePriority
         }
 
-    open BoxToTabletop.Configuration
-
-    [<EntryPoint>]
-    let main (argv: string array) =
+    let parseAndStart (results : ParseResults<CLIArguments>) =
         let logger = LogProvider.getLoggerByFunc()
-        logger.info (!! "Starting application.")
-        let parser = ArgumentParser.Create<CLIArguments>(programName = "BoxToTabletop")
-        let results = parser.Parse(argv)
-        if results.Contains Version then
-            AssemblyInfo.printVersion()
-        elif results.Contains Info then
-            AssemblyInfo.printInfo()
-        elif results.Contains Run then
+        match tryParseAuth0Config results with
+        | Ok auth0Config ->
             let postgresHost = results.GetResult (PostgresHost, defaultValue = "localhost")
-            let config = { PostgresConfig.Default() with PostgresHost = postgresHost} |> ApplicationConfig.Create
+            let postgresConf = { PostgresConfig.Default() with PostgresHost = postgresHost} 
+            let config = ApplicationConfig.Create postgresConf auth0Config
+            !! "Config is {config}" >>!+ ("config", config) |> logger.info
             let connstr = config.PostgresConfig.PostgresConnectionString()
             MigrationRunner.run connstr
 
             let deps = Repository.createDbConnection connstr |> createDependencies
             let host = BoxToTabletop.Webhost.buildHost config deps
+            !! "Running web host..." |> logger.info
+            host.Run()
+        | Error e ->
+            !! "Unable to start application: {e}"
+            >>!+ ("e", e)
+            |> logger.warn
+            printUsage() |> printfn "%s"
 
-            let run = host.Run()
-            ()
+    [<EntryPoint>]
+    let main (argv: string array) =
+        let logger = LogProvider.getLoggerByFunc()
+        logger.info (!! "Launching application.")
+
+        let results = parseArgs argv
+        
+        if results.Contains Version then AssemblyInfo.printVersion()
+        if results.Contains Info then AssemblyInfo.printInfo()
+        
+        if results.Contains Usage |> not then
+            parseAndStart results
         else
-            parser.PrintUsage() |> printfn "%s"
+            printUsage() |> printfn "%s"
         0

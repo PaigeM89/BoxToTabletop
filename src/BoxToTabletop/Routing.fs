@@ -254,17 +254,26 @@ let parsingErrorHandler (err : string) next ctx =
     |> logger.error
     RequestErrors.badRequest (json "Unable to deserialize json") next ctx
 
+let failedAuthHandler =
+    RequestErrors.UNAUTHORIZED
+        Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme
+        "no idea what Realm is"
+        "You must be logged in"
+
+let authenticated = requiresAuthentication failedAuthHandler
+
 let webApp (deps : Dependencies) =
     choose [
-        POST >=> routeCif (Routes.UnitRoutes.Transfer.POST()) (fun unitId -> Units.transferUnit deps.createConnection deps.loadUnit deps.updateUnit unitId)
-        //GET >=> routeCif (Routes.UnitRoutes.GET()) (fun _ -> ()) // TODO WHEN NEEDED
-        GET >=> routeCi Routes.UnitRoutes.Root >=> Units.listUnits deps.createConnection deps.loadAllUnits
-        POST >=> routeCi (Routes.UnitRoutes.Root) >=> (Units.saveUnit deps.createConnection deps.saveUnit)
-        PUT >=> routeCif (Routes.UnitRoutes.PUT()) (fun unitId -> Units.updateUnit deps.createConnection deps.updateUnit unitId)
-        DELETE >=> routeCif (Routes.UnitRoutes.DELETE()) (fun unitId -> Units.deleteUnit deps.createConnection deps.deleteUnit unitId)
-        GET >=> routeCi Routes.ProjectRoutes.GETALL >=> Projects.listAllProjects deps.createConnection deps.loadAllProjects
-        GET >=> routeCif (Routes.ProjectRoutes.GET()) (fun projId -> Projects.loadProject deps.createConnection deps.loadProject projId)
-        PUT >=> routeCif (Routes.ProjectRoutes.PUT()) (fun projId -> Projects.updateProject deps.createConnection deps.loadProject deps.saveProject deps.updateProject projId)
-        PUT >=> routeCif (Routes.ProjectRoutes.Priorities.PUT()) (fun projId -> Projects.updateUnitPriorities deps.createConnection deps.updatePriority projId)
+        authenticated >=> choose [
+            POST >=> routeCif (Routes.UnitRoutes.Transfer.POST()) (fun unitId -> Units.transferUnit deps.createConnection deps.loadUnit deps.updateUnit unitId)
+            GET >=> routeCi Routes.UnitRoutes.Root >=> Units.listUnits deps.createConnection deps.loadAllUnits
+            POST >=> routeCi (Routes.UnitRoutes.Root) >=> (Units.saveUnit deps.createConnection deps.saveUnit)
+            PUT >=> routeCif (Routes.UnitRoutes.PUT()) (fun unitId -> Units.updateUnit deps.createConnection deps.updateUnit unitId)
+            DELETE >=> routeCif (Routes.UnitRoutes.DELETE()) (fun unitId -> Units.deleteUnit deps.createConnection deps.deleteUnit unitId)
+            GET >=> routeCi Routes.ProjectRoutes.GETALL >=> Projects.listAllProjects deps.createConnection deps.loadAllProjects
+            GET >=> routeCif (Routes.ProjectRoutes.GET()) (fun projId -> Projects.loadProject deps.createConnection deps.loadProject projId)
+            PUT >=> routeCif (Routes.ProjectRoutes.PUT()) (fun projId -> Projects.updateProject deps.createConnection deps.loadProject deps.saveProject deps.updateProject projId)
+            PUT >=> routeCif (Routes.ProjectRoutes.Priorities.PUT()) (fun projId -> Projects.updateUnitPriorities deps.createConnection deps.updatePriority projId)
+        ]
         route "/" >=> GET >=> htmlFile "index.html"
     ]

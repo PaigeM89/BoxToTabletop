@@ -6,7 +6,6 @@ Thoth.Json
 Thoth.Elmish.Debouncer
 Fable.Promise
 Thoth.Fetch
-FSharp.Control.AsyncRx
 Fable.Reaction
 Fable.React
 
@@ -22,4 +21,5 @@ Fable.Elmish.React
 
 Elmish.DragAndDrop
 
+FSharp.Control.AsyncRx
 FSharpx.Collections
