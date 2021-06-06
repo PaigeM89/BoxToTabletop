@@ -10,13 +10,6 @@ https://gist.github.com/cmeeren/6e1ff19bd64c9dac57d8bbc56b8ec2a8
 https://fable.io/blog/Announcing-Fable-React-5.html
 https://blog.nojaf.com/2018/11/10/react-hooks-in-fable/
 
-fable react hoooks for drag and drop
-https://gist.github.com/JordanMarr/2d478dfecf9e91bba953c649fe2ff458
-
-drag and drop with jquery:
-https://github.com/fable2-samples/jquery-app/blob/master/src/App.fs
-https://jqueryui.com/sortable/
-
 old `npm-run-start` value: `dotnet fable watch src --run webpack-dev-server`
 
 ## Requirements

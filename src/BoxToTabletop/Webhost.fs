@@ -32,21 +32,15 @@ module Webhost =
 
 
     let configureJwtServices (config : ApplicationConfig) (svcs : IServiceCollection) =
-        let issuer = $"https://{config.Auth0Config.Domain}/"
-        let validationParams =  new TokenValidationParameters()
-        validationParams.ValidateIssuer <- true
-        validationParams.ValidateIssuerSigningKey <- true
-        validationParams.ValidateAudience <- true
-        validationParams.ValidAudience <- config.Auth0Config.Audience
-        validationParams.ValidIssuer <- issuer
-        validationParams.IssuerSigningKey <- new SymmetricSecurityKey(Encoding.UTF8.GetBytes(config.Auth0Config.ClientId))
-        validationParams.ValidAlgorithms <- [| "RS256" |]
+        let issuer = Jwt.createIssuer config
+        let validationParams = Jwt.createValidationParams config
 
         svcs
             .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, fun options ->
                 options.Authority <- issuer
                 options.TokenValidationParameters <- validationParams
+                options.SaveToken <- true
 #if DEBUG
                 options.RequireHttpsMetadata <- false
 #endif

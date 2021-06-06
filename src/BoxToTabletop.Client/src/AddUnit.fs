@@ -12,6 +12,8 @@ module AddUnit =
         PrimedCount : int
         PaintedCount : int
         BasedCount : int
+        Power : int
+        Points : int
         ShowError : bool
     } with
         static member Init() = {
@@ -21,6 +23,8 @@ module AddUnit =
             PrimedCount = 0
             PaintedCount = 0
             BasedCount = 0
+            Power = 0
+            Points = 0
             ShowError = false
         }
 
@@ -34,6 +38,8 @@ module AddUnit =
                 Primed = this.PrimedCount
                 Painted = this.PaintedCount
                 Based = this.BasedCount
+                Power = this.Power
+                Points = this.Points
         }
 
     type Model = {
@@ -59,20 +65,29 @@ module AddUnit =
         module Unit =
             let setProjectId projId unit = { unit with Unit.ProjectId = projId }
 
+    /// "Messages" outside the core message loop that are exclusively handled by the parent components
+    type RaisedMsg =
+    | NewUnitAdded of unit : Unit
+    
+    /// Messages initiated externally and handled inside this component
     type ExternalMsg =
-    /// Raised externally. The unit was successfully added. Clear the input.
-    | AddNewUnitSuccess
+    | ColumnSettingsChange of cs : ColumnSettings
+    /// Changes the project Id and the column settings
+    | ProjectChange of project : Project
 
     type Msg =
-    | UpdateColumnSettings of cs : ColumnSettings
+    // | UpdateColumnSettings of cs : ColumnSettings
     | UpdatePartialData of newPartial : PartialData
     /// Called when 'Add' is clicked. Does not contain a unit, as the input has not been verified.
     | TryAddNewUnit
     /// Adds a new, valid unit.
-    | AddNewUnit of unit : Unit
+    //| AddNewUnit of unit : Unit
     /// There are invalid inputs to create a new unit
-    | ShowInputErrors
+    //| ShowInputErrors
     | External of ExternalMsg
+
+    let createColumnSettingsChangeMsg cs = ColumnSettingsChange cs |> External
+    let createProjectChangeMsg proj = ProjectChange proj |> External
 
     module View =
         open Fable.React
@@ -132,7 +147,7 @@ module AddUnit =
         let view model dispatch =
             let partial = model.PartialData
             let cs = model.ColumnSettings
-            // printfn "column settings when drawing add unit is %A" cs
+            printfn "column settings when drawing add unit is %A" cs
             let func (ev : Browser.Types.Event) transform =
                 let c = Parsing.parseIntOrZero ev.Value
                 UpdatePartialData (transform partial c)
@@ -140,7 +155,8 @@ module AddUnit =
             let inputColor =
                 if partial.ShowError then IsDanger else NoColor
                 |> Input.Color
-            Section.section [ Section.CustomClass "no-padding-section"  ] [
+            //Section.section [ Section.CustomClass "no-padding-section"  ] [
+            div [] [
                 Heading.h3 [ Heading.IsSubtitle  ] [ Text.p [ Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ][ str "Add a new unit" ]]
                 Level.level [ ] [
                     unitNameInput inputColor partial dispatch
@@ -149,6 +165,8 @@ module AddUnit =
                     if cs.PrimedVisible then newUnitNumericInput inputColor "Primed" partial.PrimedCount (fun ev -> func ev (fun p c -> { p with PrimedCount = c }))
                     if cs.PaintedVisible then newUnitNumericInput inputColor "Painted" partial.PaintedCount (fun ev -> func ev (fun p c -> { p with PaintedCount = c }))
                     if cs.BasedVisible then newUnitNumericInput inputColor "Based" partial.BasedCount (fun ev -> func ev (fun p c -> { p with BasedCount = c }))
+                    if cs.PowerVisible then newUnitNumericInput inputColor "Power" partial.Power (fun ev -> func ev (fun p c -> { p with Power = c }))
+                    if cs.PointsVisible then newUnitNumericInput inputColor "Points" partial.Points (fun ev -> func ev (fun p c -> { p with Points = c }))
                     addUnitWrapper [  CustomClass "add-unit-button-box" ] [
                         Button.Input.submit [
                             Button.Props [ Value "Add" ]
@@ -161,23 +179,39 @@ module AddUnit =
 
     open Elmish
 
+    type UpdateResponse = Core.UpdateResponse<Model, Msg, RaisedMsg>
+
+    let handleExternalMsg (model : Model) (msg : ExternalMsg) =
+        match msg with
+        | ColumnSettingsChange cs ->
+            { model with ColumnSettings = cs }, Cmd.none
+        | ProjectChange project ->
+            { model with ProjectId = project.Id; ColumnSettings = project.ColumnSettings }, Cmd.none
+
     let update model msg =
         match msg with
-        | UpdateColumnSettings cs ->
-            { model with Model.ColumnSettings = cs }, Cmd.none
+        // | UpdateColumnSettings cs ->
+        //     { model with Model.ColumnSettings = cs }, Cmd.none
+        | External ext ->
+            let mdl, cmd = handleExternalMsg model ext
+            UpdateResponse.basic mdl cmd
         | UpdatePartialData np ->
-            { model with PartialData = np }, Cmd.none
+            let mdl = { model with PartialData = np }
+            UpdateResponse.basic mdl Cmd.none
         | TryAddNewUnit ->
             if model.PartialData.IsValid() then
                 printfn "Setting new unit project id to %A" model.ProjectId
-                let nu = model.PartialData.ToUnit() |> Model.Unit.setProjectId model.ProjectId
-                model, Cmd.ofMsg (AddNewUnit nu)
+                let unit = model.PartialData.ToUnit() |> Model.Unit.setProjectId model.ProjectId
+                let raised = NewUnitAdded unit
+                let mdl = { model with PartialData = PartialData.Init() }
+                UpdateResponse.withRaised mdl Cmd.none raised
             else
-                Model.toggleShowErrors true model , Cmd.none
-        | AddNewUnit _ ->
-            model, Cmd.none
-        | ShowInputErrors ->
-            Model.toggleShowErrors false model, Cmd.none
-        | External (AddNewUnitSuccess) ->
-            { model with PartialData = PartialData.Init() }, Cmd.none
+                let mdl = Model.toggleShowErrors true model
+                UpdateResponse.basic mdl Cmd.none
+        // | AddNewUnit _ ->
+        //     model, Cmd.none
+        // | ShowInputErrors ->
+        //     Model.toggleShowErrors false model, Cmd.none
+        // | External (AddNewUnitSuccess) ->
+        //     { model with PartialData = PartialData.Init() }, Cmd.none
 

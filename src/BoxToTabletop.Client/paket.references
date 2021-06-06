@@ -4,8 +4,9 @@ Fable.Browser.Dom
 Fable.Fetch
 Thoth.Json
 Thoth.Elmish.Debouncer
-Fable.Promise
 Thoth.Fetch
+Thoth.Elmish.Toast
+Fable.Promise
 Fable.Reaction
 Fable.React
 

@@ -79,6 +79,12 @@ let updateProject (conn : CreateConn) (project : DbTypes.Project) =
         where (eq "id" project.id)
     } |> conn().UpdateAsync
 
+let deleteProject (conn : CreateConn) (projectId : Guid) =
+    delete {
+        table "projects"
+        where (eq "id" projectId)
+    } |> conn().DeleteAsync
+
 /// Updates the priority value for a single unit.
 let updatePriority (conn : CreateConn) (projectId : Guid) (unitId : Guid) (priority : int) =
     update {

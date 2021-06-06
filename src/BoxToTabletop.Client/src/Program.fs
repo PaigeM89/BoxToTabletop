@@ -23,15 +23,19 @@ type SpinnerState = {
     Sources : Guid list
 }
 
+type ErrorMessage = 
+| WithTitle of title : string * message : string
+| JustMessage of message : string
+
 type Model = {
     Config : Config.T
     LoginModel : Login.Model
 
     AddUnitModel : AddUnit.Model
     UnitsListModel : UnitsList.Model
-    ProjectSettings : ProjectSettings.Model
+    ProjectSettingsModel : ProjectSettings.Model
     ProjectsListModel : ProjectsList.Model
-    ErrorMessages : Map<Guid, string>
+    ErrorMessages : Map<Guid, ErrorMessage>
 
     SpinnerState : SpinnerState
     IsProjectSectionCollapsed : bool
@@ -46,7 +50,7 @@ type Model = {
             LoginModel = Login.Model.Empty()
             AddUnitModel = AddUnit.Model.Init(config)
             UnitsListModel = UnitsList.Model.Init(config, dnd)
-            ProjectSettings = ProjectSettings.Model.Init(config)
+            ProjectSettingsModel = ProjectSettings.Model.Init(config)
             ProjectsListModel = ProjectsList.Model.Init(config, dnd)
             ErrorMessages = Map.empty
 
@@ -66,7 +70,7 @@ type Model = {
             this with
                 AddUnitModel = AddUnit.Model.Init(this.Config)
                 UnitsListModel = UnitsList.Model.Init(this.Config, dnd)
-                ProjectSettings = ProjectSettings.Model.Init(this.Config)
+                ProjectSettingsModel = ProjectSettings.Model.Init(this.Config)
                 ProjectsListModel = ProjectsList.Model.Init(this.Config, dnd)
         }
 
@@ -129,10 +133,7 @@ module View =
                     ]
                     Level.item [ Level.Item.HasTextCentered ] [
                         Heading.h3 [
-                            //todo: this doesn't work lol
-                            Heading.Modifiers [ 
-                                Modifier.Spacing (Spacing.PaddingLeft, Spacing.Is5)
-                            ]
+                            Heading.CustomClass "pad-left-10"
                         ] [
                             str "Box To Tabletop"
                         ]
@@ -172,7 +173,7 @@ module View =
     let leftPanel (model : Model) dispatch =
         let projectSettingsView state =
             ProjectSettings.View.view
-                state.ProjectSettings (fun (x : ProjectSettings.Msg) ->  ProjectSettingsMsg x |> dispatch)
+                state.ProjectSettingsModel (fun (x : ProjectSettings.Msg) ->  ProjectSettingsMsg x |> dispatch)
 
         if model.IsProjectSectionCollapsed then
             Column.column [ Column.Width (Screen.All, Column.Is1) ] [
@@ -219,7 +220,8 @@ module View =
             navbar
             //AlertMessage.page()
             Container.container [ Container.IsFluid ] [
-                Columns.columns [ Columns.IsGap (Screen.All, Columns.Is1); Columns.IsGrid; Columns.IsVCentered ]
+                //  Columns.IsVCentered
+                Columns.columns [ Columns.IsGap (Screen.All, Columns.Is1); Columns.IsGrid; ]
                     [
                         leftPanel model dispatch
                         if dividerOption.IsSome then Option.get dividerOption
@@ -232,126 +234,135 @@ module View =
         ]
 
 let handleProjectSettingsMsg (msg : ProjectSettings.Msg) (model : Model) =
-    let setMdl, setCmd = ProjectSettings.update model.ProjectSettings msg
+    let updateResponse = ProjectSettings.update model.ProjectSettingsModel msg
 
-    let mdl, newCmd =
-        match msg with
-        | ProjectSettings.ProjectLoaded (Ok proj) ->
-            /// TODO: Clean this up, make it spin
-            let addMdl = { model.AddUnitModel with ProjectId = proj.Id }
-            let model = { model with AddUnitModel = addMdl } // ShowSpinner = false;
-            let cmd2 = UnitsList.Msg.External (UnitsList.ExternalMsg.ProjectChange proj) |> UnitsListMsg |> Cmd.ofMsg
-            let cmd3 = AddUnit.Msg.UpdateColumnSettings proj.ColumnSettings |> AddUnitMsg |> Cmd.ofMsg
-            model, [ cmd2; cmd3 ] |> Cmd.batch
-        | ProjectSettings.ProjectLoaded (Error _) ->
-            model, Cmd.none //{ model with ShowSpinner = false }
-        | ProjectSettings.UpdatedColumnSettings cs ->
-            let cmd1 = UnitsList.Msg.External (UnitsList.ExternalMsg.ColumnSettingsChange cs) |> UnitsListMsg |> Cmd.ofMsg
-            let cmd2 = AddUnit.Msg.UpdateColumnSettings cs |> AddUnitMsg |> Cmd.ofMsg
-            model, [ cmd1 ; cmd2 ] |> Cmd.batch
-        | _ -> model, Cmd.none
+    let model =
+        match updateResponse.spinner with
+        | Some (SpinnerStart sourceId) -> addSpinStart sourceId model
+        | Some (SpinnerEnd sourceId) -> removeSpin sourceId model
+        | None -> model
+    
+    let mdl, cmd = 
+        match updateResponse.raised with
+        | Some (ProjectSettings.RaisedMsg.ProjectDeleted projectId) ->
+            let cmd = ProjectsList.createProjectDeletedMsg projectId |> ProjectsListMsg |> Cmd.ofMsg
+            model, cmd
+        | Some (ProjectSettings.RaisedMsg.ProjectLoaded project) ->
+            let addMdl = { model.AddUnitModel with ProjectId = project.Id }
+            let model = { model with AddUnitModel = addMdl }
+            let cmd = UnitsList.createProjectChangeMsg project |> UnitsListMsg |> Cmd.ofMsg
+            let cmd2 = AddUnit.createProjectChangeMsg project |> AddUnitMsg |> Cmd.ofMsg
+            model, [ cmd; cmd2 ] |> Cmd.batch
+        | Some (ProjectSettings.RaisedMsg.UpdatedColumnSettings cs) ->
+            printfn "project settings raised column settings change event: %A" cs
+            let cmd = AddUnit.createColumnSettingsChangeMsg cs |> AddUnitMsg |> Cmd.ofMsg
+            let cmd2 = UnitsList.createColumnChangeMsg cs |> UnitsListMsg |> Cmd.ofMsg
+            model, [ cmd; cmd2 ] |> Cmd.batch
+        | None -> model, Cmd.none
+        
 
-    let cmds = [ (Cmd.map ProjectSettingsMsg setCmd); newCmd ] |> Cmd.batch
-    { mdl with ProjectSettings = setMdl }, cmds
+    let projectSettingsModel = updateResponse.model
+    let projectSettingsCmd = updateResponse.cmd |> Cmd.map ProjectSettingsMsg
+
+    let cmds = [ projectSettingsCmd; cmd ] |> Cmd.batch
+    { mdl with ProjectSettingsModel = projectSettingsModel }, cmds
 
 let handleAddUnitMsg (msg : AddUnit.Msg) (model : Model) =
-    let addMdl, addCmd = AddUnit.update model.AddUnitModel msg
-
+    let updateResponse = AddUnit.update model.AddUnitModel msg
+    let model =
+        match updateResponse.spinner with
+        | Some (SpinnerStart sourceId) -> addSpinStart sourceId model
+        | Some (SpinnerEnd sourceId) -> removeSpin sourceId model
+        | None -> model
+    
     let mdl, cmd =
-        match msg with
-        | AddUnit.AddNewUnit unit ->
-            let msg = UnitsList.ExternalMsg.AddNewUnit unit |> UnitsList.External
-            model, Cmd.ofMsg (UnitsListMsg msg)
-        | _ -> model, Cmd.none
+        match updateResponse.raised with
+        | Some (AddUnit.NewUnitAdded unit) ->
+            let cmd = UnitsList.createAddUnitMsg unit |> UnitsListMsg |> Cmd.ofMsg
+            model, cmd
+        | None -> model, Cmd.none
+    
+    let addMdl = updateResponse.model
+    let addCmd = updateResponse.cmd |> Cmd.map AddUnitMsg
 
-    let cmds = [ (Cmd.map AddUnitMsg addCmd ); cmd] |> Cmd.batch
-    { mdl with AddUnitModel = addMdl }, cmds
+    { mdl with AddUnitModel = addMdl }, [ cmd; addCmd ] |> Cmd.batch
 
 let handleUnitsListMsg (msg : UnitsList.Msg) (model : Model) =
-    let unitsMdl, unitsCmd = UnitsList.update model.UnitsListModel msg
-    let mdl,newMsg =
-        match msg with
-        | External (DndStart (dnd, unitId)) ->
-            if unitId <> Guid.Empty then
-                { model with DragAndDrop = dnd; DraggedUnitId = Some unitId}, Cmd.none
-            else
-                { model with DragAndDrop = dnd}, Cmd.none
-        | External (DndEnd) ->
-            { model with DragAndDrop = DragAndDropModel.Empty(); DraggedUnitId = None }, Cmd.none
-        | External (SpinnerStart sourceId) ->
-            let model = addSpinStart sourceId model
-            model, Cmd.none
-        | External (SpinnerEnd sourceId) ->
-            let model = removeSpin sourceId model
-            model, Cmd.none
-        | External (LogErrorMessage (src, msg)) ->
-            // todo: log errors here
-            Fable.Core.JS.console.error("Error: ", src, msg)
-            model, Cmd.none
-        | External (LiftErrorMessage (messageId, message)) ->
-            let msgId = messageId |> Option.defaultValue (Guid.NewGuid())
-            let mdl = addErrorMessage msgId message model
-            mdl, Cmd.none
-        | External (ClearErrorMessage messageId) ->
-            let mdl = clearMessageById messageId model
-            mdl, Cmd.none
-        | _ -> model, Cmd.none
+    let updateResponse = UnitsList.update model.UnitsListModel msg
 
-    let cmds = [ (Cmd.map UnitsListMsg unitsCmd); newMsg ] |> Cmd.batch
+    let model = 
+        match updateResponse.spinner with
+        | Some (SpinnerStart sourceId) -> addSpinStart sourceId model
+        | Some (SpinnerEnd sourceId) -> removeSpin sourceId model
+        | None -> model
+
+    let mdl, cmd =
+        match updateResponse.raised with
+        | Some (DndStart (dndMdl, unitId)) ->
+            if unitId <> Guid.Empty then
+                { model with DragAndDrop = dndMdl; DraggedUnitId = Some unitId }, Cmd.none
+            else
+                { model with DragAndDrop = dndMdl }, Cmd.none
+        | Some DndEnd ->
+            { model with DragAndDrop = DragAndDropModel.Empty(); DraggedUnitId = None }, Cmd.none
+        | Some (ClearErrorMessage (messageId)) ->
+            model |> clearMessageById messageId, Cmd.none
+        | Some (LiftErrorMessage (title, message, messageId)) ->
+            let msgId = messageId |> Option.defaultWith Guid.NewGuid
+            let errMsg = (title, message) |> WithTitle
+            model |> addErrorMessage msgId errMsg, Cmd.none
+        | None -> model, Cmd.none
+
+    let unitsCmd = updateResponse.cmd
+    let unitsMdl = updateResponse.model
+
+    let cmds = [ (Cmd.map UnitsListMsg unitsCmd); cmd ] |> Cmd.batch
 
     { mdl with UnitsListModel = unitsMdl }, cmds
 
 let handleProjectsListMsg (msg : ProjectsList.Msg) (model : Model) =
-    let listMdl, listCmd = ProjectsList.update model.ProjectsListModel msg
+    let updateResponse = ProjectsList.update model.ProjectsListModel msg
 
-    let projectLoadSpinId = Guid.Parse("1DE04F5F-9C92-47A4-9202-ADE3D89D4B22")
-    let addSpin() = addSpinStart projectLoadSpinId model
-    let removeSpin() = removeSpin projectLoadSpinId model
-
-    let mdl, newMsg =
-        match msg with
-        | ProjectsList.LoadAllProjects ->
-            let mdl = addSpin()
-            mdl, Cmd.none
-        | ProjectsList.External (ProjectsList.DndMsg dndMsg) ->
+    let model =
+        match updateResponse.spinner with
+        | Some (SpinnerStart sourceId) -> addSpinStart sourceId model
+        | Some (SpinnerEnd sourceId) -> removeSpin sourceId model
+        | None -> model
+    
+    let mdl, cmd =
+        match updateResponse.raised with
+        | Some (ProjectsList.ProjectSelected project) ->
+            let cmd = ProjectSettings.ExternalSourceMsg.ProjectSelected (project) |> ProjectSettings.External |> ProjectSettingsMsg |> Cmd.ofMsg
+            let cmd2 = AddUnit.createProjectChangeMsg project |> AddUnitMsg |> Cmd.ofMsg
+            let cmd3 = UnitsList.createProjectChangeMsg project |> UnitsListMsg |> Cmd.ofMsg
+            model, [ cmd; cmd2; cmd3 ] |> Cmd.batch
+        | Some (ProjectsList.TransferUnitTo projectId) ->
+            printfn "TODO: RE-IMPLEMENT THIS"
             model, Cmd.none
-        | ProjectsList.ProjectsLoadError _
-        | ProjectsList.AllProjectsLoaded _ ->
-            let mdl = removeSpin()
-            mdl, Cmd.none
-        | ProjectsList.DefaultProjectCreated proj ->
-            let settingsCmd = Cmd.ofMsg (ProjectSettings.Msg.ProjectLoaded (Ok proj)) |> Cmd.map ProjectSettingsMsg
-            let mdl = removeSpin()
-            { mdl with ProjectsListModel = listMdl }, settingsCmd
-        | ProjectsList.ProjectSelected proj ->
-            let cmd = Cmd.ofMsg (ProjectSettings.Msg.MaybeLoadProject (Some proj.Id)) |> Cmd.map ProjectSettingsMsg
-            model, cmd
-        | ProjectsList.External (ProjectsList.TransferUnitTo projectId) ->
-            match model.DraggedUnitId with
-            | Some unitId ->
-                printfn "transferring unit %A to project %A" unitId projectId
-                let cmd = UnitsList.TransferUnitTo (unitId, projectId) |> UnitsList.External |> UnitsListMsg |> Cmd.ofMsg
-                model, cmd
-            | None ->
-                printfn "Tried to transfer a unit to project %A but did not find a unit Id in the model" projectId
-                model, Cmd.none
-        | ProjectsList.OnHover _
-        | ProjectsList.External _ ->
+        | Some (ProjectsList.DndMsg dndMsg) ->
+            printfn "TODO: RE-IMPLEMENT THIS"
             model, Cmd.none
+        | None -> model, Cmd.none
+    
+    let plCmd = updateResponse.cmd |> Cmd.map ProjectsListMsg
+    let plModel = updateResponse.model
 
-    let cmds = [ (Cmd.map ProjectsListMsg listCmd); newMsg ] |> Cmd.batch
-    { mdl with ProjectsListModel = listMdl }, cmds
+    { mdl with ProjectsListModel = plModel}, [ cmd; plCmd ] |> Cmd.batch
 
 let handleDndMsg (msg : DragAndDropMsg) (model : Model) =
-    let unitListMdl, unitListCmd = UnitsList.update model.UnitsListModel (UnitsList.Msg.DndMsg (msg, None))
+    printfn "Handling drag and drop message by explicitly passing it to the units list component"
+    let updateResponse = UnitsList.update model.UnitsListModel (UnitsList.Msg.DndMsg (msg, None))
 
-    let newDnd = unitListMdl.DragAndDrop
+    let newDnd = updateResponse.model.DragAndDrop
+    let unitListCmd = updateResponse.cmd
+    let unitListMdl = updateResponse.model
     let projListCmd = ProjectsList.DndModelChange newDnd |> ProjectsList.External |> Cmd.ofMsg |> Cmd.map ProjectsListMsg
 
     let cmd = Cmd.map UnitsListMsg unitListCmd
     { model with UnitsListModel = unitListMdl; DragAndDrop = newDnd }, [cmd; projListCmd] |> Cmd.batch
 
 let update (msg : Msg) (model : Model) : (Model * Cmd<Msg>) =
+    printfn "root project msg is %A" msg
     match msg with
     | Start ->
         let loadProjectsCmd = Cmd.ofMsg (ProjectsList.Msg.LoadAllProjects)

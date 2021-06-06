@@ -24,6 +24,9 @@ module Types =
         /// New units are added with priority 0, then the rest are re-ordered.
         /// This is not intended to be a user visible field.
         Priority : int
+        Power : int
+        Points : int
+        OwnerId : string
     } with
         static member Empty() = {
             Id = Guid.NewGuid()
@@ -35,6 +38,9 @@ module Types =
             Painted = 0
             Based = 0
             Priority = 0
+            Power = 0
+            Points = 0
+            OwnerId = ""
         }
         static member Decoder : Decoder<Unit> =
             Decode.object
@@ -49,6 +55,9 @@ module Types =
                         Painted = get.Required.Field "painted" Decode.int
                         Based = get.Required.Field "based" Decode.int
                         Priority = get.Required.Field "priority" Decode.int
+                        Power = get.Required.Field "power" Decode.int
+                        Points = get.Required.Field "points" Decode.int
+                        OwnerId = get.Required.Field "ownerId" Decode.string
                     }
                 )
 
@@ -67,6 +76,9 @@ module Types =
                     "painted", Encode.int unit.Painted
                     "based", Encode.int unit.Based
                     "priority", Encode.int unit.Priority
+                    "power", Encode.int unit.Power
+                    "points", Encode.int unit.Points
+                    "ownerId", Encode.string unit.OwnerId
                 ]
             
 
@@ -110,12 +122,16 @@ module Types =
         PrimedVisible : bool
         PaintedVisible : bool
         BasedVisible : bool
+        PowerVisible : bool
+        PointsVisible : bool
     } with
         static member Empty() = {
             AssemblyVisible = true
             PrimedVisible = false
             PaintedVisible = true
             BasedVisible = false
+            PowerVisible = false
+            PointsVisible = true
         }
 
         member this.Enumerate() =
@@ -124,6 +140,8 @@ module Types =
                 yield "Primed", this.PrimedVisible
                 yield "Painted", this.PaintedVisible
                 yield "Based", this.BasedVisible
+                yield "Power", this.PowerVisible
+                yield "Points", this.PointsVisible
             ]
 
         member this.EnumerateWithTransformer() =
@@ -132,6 +150,8 @@ module Types =
                 yield {| Name = "Primed"; Value = this.PrimedVisible; Func = fun newValue -> { this with PrimedVisible = newValue } |}
                 yield {| Name = "Painted"; Value = this.PaintedVisible; Func = fun newValue -> { this with PaintedVisible = newValue } |}
                 yield {| Name = "Based"; Value = this.BasedVisible; Func = fun newValue -> { this with BasedVisible = newValue } |}
+                yield {| Name = "Power"; Value = this.PowerVisible; Func = fun newValue -> { this with PowerVisible = newValue } |}
+                yield {| Name = "Points"; Value = this.PointsVisible; Func = fun newValue -> { this with PointsVisible = newValue } |}
             ]
 
     type Project = {
@@ -141,6 +161,7 @@ module Types =
         ColumnSettings : ColumnSettings
         Units : Unit list
         IsPublic : bool
+        OwnerId : string
     } with
         static member Empty() = {
             Id = Guid.NewGuid()
@@ -149,6 +170,7 @@ module Types =
             ColumnSettings = ColumnSettings.Empty()
             Units = []
             IsPublic = true
+            OwnerId = ""
         }
 
         static member Decoder : Decoder<Project> =
@@ -158,11 +180,14 @@ module Types =
                     Name = get.Required.Field "name" Decode.string
                     IsPublic = get.Required.Field "isPublic" Decode.bool
                     Units = [] //will be populated in a 2nd call
+                    OwnerId = get.Required.Field "ownerId" Decode.string
                     ColumnSettings = {
                         AssemblyVisible = get.Required.Field "assemblyVisible" Decode.bool
                         PrimedVisible = get.Required.Field "primedVisible" Decode.bool
                         PaintedVisible = get.Required.Field "paintedVisible" Decode.bool
                         BasedVisible = get.Required.Field "basedVisible" Decode.bool
+                        PowerVisible = get.Required.Field "powerVisible" Decode.bool
+                        PointsVisible = get.Required.Field "pointsVisible" Decode.bool
                     }
                 }
             )
@@ -175,10 +200,13 @@ module Types =
                 "id", Encode.guid project.Id
                 "name", Encode.string project.Name
                 "isPublic", Encode.bool project.IsPublic
+                "ownerId", Encode.string project.OwnerId
                 "assemblyVisible", Encode.bool project.ColumnSettings.AssemblyVisible
                 "primedVisible", Encode.bool project.ColumnSettings.PrimedVisible
                 "paintedVisible", Encode.bool project.ColumnSettings.PaintedVisible
                 "basedVisible", Encode.bool project.ColumnSettings.BasedVisible
+                "powerVisible", Encode.bool project.ColumnSettings.PowerVisible
+                "pointsVisible", Encode.bool project.ColumnSettings.PointsVisible
             ]
 
     module Unit =
@@ -188,4 +216,6 @@ module Types =
                 if cs.PrimedVisible then yield ("Primed", unit.Primed)
                 if cs.PaintedVisible then yield ("Painted", unit.Painted)
                 if cs.BasedVisible then yield ("Based", unit.Based)
+                if cs.PowerVisible then yield ("Power", unit.Power)
+                if cs.PointsVisible then yield ("Points", unit.Points)
             ]

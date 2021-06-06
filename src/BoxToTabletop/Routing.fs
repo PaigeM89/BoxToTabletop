@@ -52,6 +52,12 @@ let tryBindModelAsync<'T>
         | Core.Ok model  -> return! successhandler model next ctx
 }
 
+let createUnauthorized realm msg =
+    RequestErrors.UNAUTHORIZED
+        Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme
+        realm
+        msg
+
 open BoxToTabletop.Repository
 
 //type CreateConn = unit -> System.Data.IDbConnection
@@ -72,6 +78,7 @@ type Dependencies = {
     loadProject : Loader<Domain.Types.Project>
     saveProject : Saver<DbTypes.Project>
     updateProject : Updater<DbTypes.Project>
+    deleteProject : Deleter
     updatePriority : CreateConn -> Guid -> Guid -> int -> Task<int>
 }
 
@@ -176,7 +183,8 @@ module Units =
 
 module Projects =
     open FSharp.Control.Tasks.V2
-
+    open Microsoft.IdentityModel.Tokens
+    open Microsoft.AspNetCore.Authentication.JwtBearer
 
     let listAllProjects (conn : CreateConn) loader next ctx = task {
         let! projects = loader conn
@@ -184,7 +192,16 @@ module Projects =
         return! Successful.OK encoded next ctx
     }
 
-    let loadProject (conn : CreateConn) loader projId next ctx = task {
+    let getToken (ctx : HttpContext) =
+        match ctx.GetRequestHeader("Authorization") with
+        | Ok value -> value.Replace("Bearer ", "") 
+        | Error e ->
+            printfn "Error getting authorization header: %A" e
+            ""
+
+    let getUserId (ctx : HttpContext) = getToken ctx |> Jwt.readToken |> Jwt.getUserId
+
+    let loadProject (conn : CreateConn) loader projId next (ctx : HttpContext) = task {
         let! projectOpt = loader conn projId
         match projectOpt with
         | Some p ->
@@ -195,57 +212,97 @@ module Projects =
             return! Successful.NO_CONTENT next ctx
     }
 
-    let updateProject (conn : CreateConn) loader saver updater projId next (ctx : HttpContext) = task {
-        let! projectToSave = ctx.BindJsonAsync<Domain.Types.Project>()
-        let encoded = Domain.Types.Project.Encoder projectToSave
-        let decoded = DbTypes.Project.FromDomainType projectToSave
-        let! existing = loader conn projId
-        match existing with
-        | Some p ->
-            !! "Project {proj} is being updated to {newproj}"
-            >>!+ ("proj", p)
-            >>!+ ("newproj", projectToSave)
-            |> logger.info
-            let! _ = updater conn decoded
-            let encoded = Domain.Types.Project.Encoder projectToSave
-            return! Successful.OK encoded next ctx
-        | None ->
-            !! "Project {proj} is being saved as new in the PUT endpoint"
-            >>!+ ("proj", projectToSave)
-            |> logger.info
-            let! _ = saver conn decoded
-            return! Successful.CREATED encoded next ctx
+    let deleteProject (conn : CreateConn) (deleter : Deleter) projectId next ctx = task {
+        let! res = deleter conn projectId
+        if res <= 1 then
+            !! "Deleting project with id {id} returned {rows} rows affected"
+            >>!+ ("id", projectId) >>!+ ("rows", res) |> logger.info
+            return! Successful.NO_CONTENT next ctx
+        else
+            !! "Expected to delete at most 1 project with id {id} but instead deleted {count}"
+            >>!+ ("id", projectId) >>!+ ("count", res) |> logger.warn
+            return! ServerErrors.INTERNAL_ERROR ("Incorrect number of records deleted") next ctx
     }
 
-    let updateUnitPriorities (conn : CreateConn) (updater) (projectId : Guid) next (ctx : HttpContext) = task {
-        let sw = Stopwatch.StartNew()
-        let! s = ctx.ReadBodyFromRequestAsync()
-        let decoded =
-            match Thoth.Json.Net.Decode.fromString Types.UnitPriority.DecodeList s with
-            | Ok x ->
-                !! "Decoded {value} from htpt body" >>!+ ("value", x) |> logger.info
-                x
-            | Error e ->
-                !! "Decode error {e} from input {input}" >>!+ ("e", e) >>!+ ("input", s) |> logger.error
-                []
-        let updateTasks : Task<int> list = decoded |> List.map (fun up -> updater conn projectId up.UnitId up.UnitPriority)
-        let! updatedRows = Task.WhenAll updateTasks
-        let rowsAffected = Array.sum updatedRows
-        let expected = List.length decoded
-        sw.Stop()
-        let log = !! "Took {time} ms to update all unit priorities" >>!+ ("time", sw.ElapsedMilliseconds)
-        if sw.ElapsedMilliseconds > 500L then logger.warn log else logger.info log
-        !! "updated priorites on proj {proj} to {updates}" >>!+("proj", projectId) >>!+ ("updates", decoded) |> logger.info
-        if rowsAffected <> expected then
-            !! "Expected to update {exp} rows, but updated {count} instead"
-            >>!- ("exp", expected) >>!+ ("count", rowsAffected)
-            |> logger.error
-            let msg = $"Updated {rowsAffected} items when given {expected} items to update"
-            return! ServerErrors.INTERNAL_ERROR msg next ctx
+    let saveProject (conn : CreateConn) loader saver next ctx = task {
+        let userId = getUserId ctx
+        match userId with
+        | Some userId ->
+            let! project = ctx.BindJsonAsync<Domain.Types.Project>()
+            let! existing = loader conn project.Id
+            match existing with
+            | Some p ->
+                return! RequestErrors.CONFLICT "Project already exists" next ctx
+            | None ->
+                let project = { project with OwnerId = userId }
+                let! _ = project |>  DbTypes.Project.FromDomainType |> saver conn
+                let encoded = project |> Domain.Types.Project.Encoder 
+                return! Successful.CREATED encoded next ctx
+        | None ->
+            return! createUnauthorized "Create Project" "Unable to find user Id to create new project" next ctx
+    }
+
+    let updateProject (conn : CreateConn) loader saver updater projId next (ctx : HttpContext) = task {
+        let! projectToSave = ctx.BindJsonAsync<Domain.Types.Project>()
+        let userId = getUserId ctx |> Option.defaultValue "Unknown User"
+        if userId <> projectToSave.OwnerId then
+            return! createUnauthorized "Update Project" "User does not have access to this project" next ctx
         else
-            let encoded = Domain.Types.UnitPriority.EncodeList decoded
-            !! "Successfully updated priorties, returning {x}" >>!+ ("x", encoded) |> logger.info
-            return! Successful.OK encoded next ctx
+            let encoded = Domain.Types.Project.Encoder projectToSave
+            let decoded = DbTypes.Project.FromDomainType projectToSave
+            let! existing = loader conn projId
+            match existing with
+            | Some p ->
+                !! "Project {proj} is being updated to {newproj}"
+                >>!+ ("proj", p)
+                >>!+ ("newproj", projectToSave)
+                |> logger.info
+                let! _ = updater conn decoded
+                let encoded = Domain.Types.Project.Encoder projectToSave
+                return! Successful.OK encoded next ctx
+            | None ->
+                !! "Project {proj} is being saved as new in the PUT endpoint"
+                >>!+ ("proj", projectToSave)
+                |> logger.info
+                let! _ = saver conn decoded
+                return! Successful.CREATED encoded next ctx
+    }
+
+    let updateUnitPriorities (conn : CreateConn) (loader : Loader<Project>) updater (projectId : Guid) next (ctx : HttpContext) = task {
+        let! project = loader conn projectId
+        let project = project |> Option.defaultValue (Project.Empty())
+        let userId = getUserId ctx |> Option.defaultValue "Unknown user"
+        if project.OwnerId <> userId then
+            return! createUnauthorized "Update Unit Priorities" "User is unable to modify unit priorities" next ctx
+        else
+            let sw = Stopwatch.StartNew()
+            let! s = ctx.ReadBodyFromRequestAsync()
+            let decoded =
+                match Thoth.Json.Net.Decode.fromString Types.UnitPriority.DecodeList s with
+                | Ok x ->
+                    !! "Decoded {value} from htpt body" >>!+ ("value", x) |> logger.info
+                    x
+                | Error e ->
+                    !! "Decode error {e} from input {input}" >>!+ ("e", e) >>!+ ("input", s) |> logger.error
+                    []
+            let updateTasks : Task<int> list = decoded |> List.map (fun up -> updater conn projectId up.UnitId up.UnitPriority)
+            let! updatedRows = Task.WhenAll updateTasks
+            let rowsAffected = Array.sum updatedRows
+            let expected = List.length decoded
+            sw.Stop()
+            let log = !! "Took {time} ms to update all unit priorities" >>!+ ("time", sw.ElapsedMilliseconds)
+            if sw.ElapsedMilliseconds > 500L then logger.warn log else logger.info log
+            !! "updated priorites on proj {proj} to {updates}" >>!+("proj", projectId) >>!+ ("updates", decoded) |> logger.info
+            if rowsAffected <> expected then
+                !! "Expected to update {exp} rows, but updated {count} instead"
+                >>!- ("exp", expected) >>!+ ("count", rowsAffected)
+                |> logger.error
+                let msg = $"Updated {rowsAffected} items when given {expected} items to update"
+                return! ServerErrors.INTERNAL_ERROR msg next ctx
+            else
+                let encoded = Domain.Types.UnitPriority.EncodeList decoded
+                !! "Successfully updated priorties, returning {x}" >>!+ ("x", encoded) |> logger.info
+                return! Successful.OK encoded next ctx
     }
 
 let parsingErrorHandler (err : string) next ctx =
@@ -271,9 +328,11 @@ let webApp (deps : Dependencies) =
             PUT >=> routeCif (Routes.UnitRoutes.PUT()) (fun unitId -> Units.updateUnit deps.createConnection deps.updateUnit unitId)
             DELETE >=> routeCif (Routes.UnitRoutes.DELETE()) (fun unitId -> Units.deleteUnit deps.createConnection deps.deleteUnit unitId)
             GET >=> routeCi Routes.ProjectRoutes.GETALL >=> Projects.listAllProjects deps.createConnection deps.loadAllProjects
+            POST >=> routeCi Routes.ProjectRoutes.POST >=> Projects.saveProject deps.createConnection deps.loadProject deps.saveProject
+            DELETE >=> routeCif (Routes.ProjectRoutes.DELETE()) (fun projectId -> Projects.deleteProject deps.createConnection deps.deleteProject projectId)
             GET >=> routeCif (Routes.ProjectRoutes.GET()) (fun projId -> Projects.loadProject deps.createConnection deps.loadProject projId)
             PUT >=> routeCif (Routes.ProjectRoutes.PUT()) (fun projId -> Projects.updateProject deps.createConnection deps.loadProject deps.saveProject deps.updateProject projId)
-            PUT >=> routeCif (Routes.ProjectRoutes.Priorities.PUT()) (fun projId -> Projects.updateUnitPriorities deps.createConnection deps.updatePriority projId)
+            PUT >=> routeCif (Routes.ProjectRoutes.Priorities.PUT()) (fun projId -> Projects.updateUnitPriorities deps.createConnection deps.loadProject deps.updatePriority projId)
         ]
         route "/" >=> GET >=> htmlFile "index.html"
     ]

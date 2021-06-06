@@ -4,17 +4,20 @@ This project helps you log & track your model backlog, from building through pai
 
 MVP:
 * logins - google
+    * hide data based on user
 * batch events to send to avoid overhwelming the server
     * with per-action updates when editing a row, this is a very strict requirement
     * run batch on page unload
 * use ExternalMsg : https://medium.com/@MangelMaxime/my-tips-for-working-with-elmish-ab8d193d52fd
-
+* Use Toast for save alert : https://github.com/thoth-org/Thoth.Elmish.Toast
 
 debounce for batching? 
 
 https://thoth-org.github.io/Thoth.Elmish.Debouncer/
 
 New FSharp.Dapper for DB?
+
+https://codeburst.io/hosting-an-asp-net-core-app-on-docker-with-https-642cde4f04e8
 
 Requirements: 
 * projects & categories

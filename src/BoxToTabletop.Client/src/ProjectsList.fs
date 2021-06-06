@@ -14,6 +14,7 @@ type Model = {
     Config : Config.T
     DragAndDrop : DragAndDropModel 
     HoveredProject : Guid option
+    NewProjectName : string
 } with
     static member Empty() = {
         Projects = []
@@ -21,6 +22,7 @@ type Model = {
         Config = Config.T.Default()
         DragAndDrop = DragAndDropModel.Empty()
         HoveredProject = None
+        NewProjectName = ""
     }
 
     static member Init(config : Config.T, dndModel : DragAndDropModel) = {
@@ -29,31 +31,46 @@ type Model = {
         Config = config
         DragAndDrop = dndModel
         HoveredProject = None
+        NewProjectName = ""
     }
-type ExternalMsg = 
-| DndMsg of DragAndDropMsg
+
+/// Messages that are raised externally and handled here.
+type ExternalSourceMsg =
 | DndModelChange of DragAndDropModel
+| ProjectDeleted of projectId : Guid
+| DragAndDropMsg of DragAndDropMsg
+
+type RaisedMsg =
+| ProjectSelected of project : Project
 | TransferUnitTo of projectId : Guid
+| DndMsg of DragAndDropMsg 
+
 
 type Msg =
+| External of ExternalSourceMsg
+| TransferUnit of projectId : Guid
 | LoadAllProjects
-| External of ExternalMsg
 | AllProjectsLoaded of projects : Project list
 | ProjectsLoadError of exn
-/// If no projects are found, a default empty one is created
-| DefaultProjectCreated of project : Project
 /// A project has been selected from the projects menu
-| ProjectSelected of project : Project
+| Selected of project : Project
 | OnHover of projectId : Guid
+| NewProjectNameUpdate of value : string
+| CreateNewProject
+| SaveProjectSuccess of Project
+| SaveProjectError of exn
+
+let createProjectDeletedMsg id = ProjectDeleted id |> External
 
 module View =
+    open Fable.FontAwesome
 
     let dragAndDropConfig = DragAndDropConfig.Empty()
 
     let onHover projId dispatch = (fun _ _ -> projId |> OnHover |> dispatch)
-    let onDrop projId dispatch = (fun _ id -> printfn "Dropping %A on project" id; projId |> TransferUnitTo |> External |> dispatch)
+    let onDrop projId dispatch = (fun _ id -> printfn "Dropping %A on project" id; projId |> TransferUnit |> dispatch)
 
-    let createMenuItems (model : Model) dispatch =
+    let createMenuItems (model : Model) (dispatch : Msg -> unit) =
         let isSelectedProject (input : Guid) =
             match model.SelectedProject with
             | None -> false
@@ -66,10 +83,10 @@ module View =
             Menu.Item.li
                 [
                     Menu.Item.IsActive isSelected
-                    Menu.Item.OnClick (fun ev -> ProjectSelected proj |> dispatch )
+                    Menu.Item.OnClick (fun _ -> Selected proj |> dispatch )
                 ] [
                     ElementGenerator.Create (sprintf "%A-dnd" proj.Id) [] [] [str label]
-                    |> DropArea.asBucket model.DragAndDrop dragAndDropConfig (fun _ _ -> ()) (onDrop proj.Id dispatch) (DndMsg >> External >> dispatch)
+                    |> DropArea.asBucket model.DragAndDrop dragAndDropConfig (fun _ _ -> ()) (onDrop proj.Id dispatch) (DragAndDropMsg >> External >> dispatch)
                 ]
 
         [ for proj in model.Projects ->
@@ -78,18 +95,38 @@ module View =
             menuItem proj.Name proj isSelected
         ]
 
-    let view (model : Model) dispatch =
+    let detectEnterKey (kev : Browser.Types.KeyboardEvent) dispatch =
+        if kev.key = "Enter" then
+            CreateNewProject |> dispatch
+        else
+            ()
+
+    let view (model : Model) (dispatch : Msg -> unit) =
         Panel.panel [] [
             Panel.heading [] [ str "Projects" ]
             Panel.Block.div [] [
                 Menu.menu [] [
                     Menu.list [] [
                         yield! createMenuItems model dispatch
+                        Menu.Item.li [
+                                Menu.Item.OnClick(fun ev -> ev.preventDefault() )
+                                Menu.Item.Option.Modifiers [ Modifier.Display (Screen.All, Display.Flex) ]
+                        ] [
+                            Input.input [ 
+                                Input.Option.Placeholder "New Project"; 
+                                Input.OnChange (fun ev -> ev.Value |> NewProjectNameUpdate |> dispatch); 
+                                Input.Props [ Props.OnKeyPress(fun k -> detectEnterKey k dispatch) ] ]
+                            Button.button [
+                                Button.OnClick (fun _ -> CreateNewProject |> dispatch )
+                            ] [ Fa.i [ Fa.Solid.Plus ] []  ]
+                        ]
                     ]
                 ]
             ]
         ]
 
+type UpdateResponse = Core.UpdateResponse<Model, Msg, RaisedMsg>
+let projectListSpinnerId = Guid.Parse("BEE7A043-3F8D-4959-ADB6-6C10706D0E32")
 
 module ApiCalls =
 
@@ -98,30 +135,66 @@ module ApiCalls =
         let cmd = Cmd.OfPromise.either loadFunc () AllProjectsLoaded ProjectsLoadError
         model, cmd
 
+    let saveNewProject (model : Model) project =
+        let save = Promises.saveProject model.Config
+        let cmd = Cmd.OfPromise.either save project SaveProjectSuccess SaveProjectError
+        model, cmd
+
+let handleExternalSourceMsg model msg =
+    match msg with
+    | ProjectDeleted projectId ->
+        let projects = model.Projects |> List.filter (fun x -> x.Id = projectId)
+        let selectedProject =
+            match model.SelectedProject with
+            | Some p when p = projectId -> None
+            | _ -> model.SelectedProject
+        ({ model with Projects = projects; SelectedProject = selectedProject}, Cmd.none)
+    | DndModelChange dndmdl ->
+        ({ model with DragAndDrop = dndmdl }, Cmd.none)
+    | DragAndDropMsg (DragAndDropMsg.DragEnd) ->
+        ({ model with HoveredProject = None }, Cmd.none)
+    | DragAndDropMsg _ ->
+        (model, Cmd.none)
+
 let update model msg =
     match msg with
-    | LoadAllProjects -> ApiCalls.loadAllProjects model
-    | External (DndMsg DragAndDropMsg.DragEnd) ->
-        { model with HoveredProject = None}, Cmd.none
-    | External (DndMsg dndMsg) ->
-        model, Cmd.none
-    | External (DndModelChange dndMdl ) ->
-        { model with DragAndDrop = dndMdl}, Cmd.none
+    | External ext -> 
+        let model, cmd = handleExternalSourceMsg model ext
+        UpdateResponse.basic model cmd
+    | LoadAllProjects -> 
+        let model, cmd = ApiCalls.loadAllProjects model
+        UpdateResponse.withSpin model cmd (Core.SpinnerStart projectListSpinnerId)
     | AllProjectsLoaded projects ->
         if List.length projects = 0 then
-            let proj = Project.Empty()
-            model, Cmd.ofMsg (DefaultProjectCreated proj)
+            UpdateResponse.withSpin model Cmd.none (Core.SpinnerEnd projectListSpinnerId)
         else
-            { model with Projects = projects }, Cmd.none
+            let model = { model with Projects = projects }
+            UpdateResponse.withSpin model Cmd.none (Core.SpinnerEnd projectListSpinnerId)
     | ProjectsLoadError e ->
         printfn "%A" e
-        model, Cmd.none
-    | DefaultProjectCreated proj ->
-        { model with Projects = proj :: model.Projects; SelectedProject = Some proj.Id }, Cmd.none
-    | ProjectSelected proj ->
-        { model with SelectedProject = Some (proj.Id) }, Cmd.none
+        UpdateResponse.withSpin model Cmd.none (Core.SpinnerEnd projectListSpinnerId)
+    | Selected proj ->
+        let model = { model with SelectedProject = Some (proj.Id) }
+        let raised = ProjectSelected proj
+        UpdateResponse.withRaised model Cmd.none raised
     | OnHover projectId ->
-        { model with HoveredProject = Some projectId }, Cmd.none
-    | External (TransferUnitTo (newProjectId)) ->
-        model, Cmd.none
+        let model = { model with HoveredProject = Some projectId }
+        UpdateResponse.basic model Cmd.none
+    | NewProjectNameUpdate value ->
+        let model = {model with NewProjectName = value}
+        UpdateResponse.basic model Cmd.none
+    | CreateNewProject ->
+        let newProj = { Project.Empty() with Name = model.NewProjectName }
+        let model, cmd = ApiCalls.saveNewProject model newProj
+        UpdateResponse.withSpin model cmd (Core.SpinnerStart projectListSpinnerId)
+    | SaveProjectSuccess proj ->
+        let projects = proj :: model.Projects
+        let model = { model with Projects = projects; NewProjectName = "" }
+        UpdateResponse.withSpin model Cmd.none (Core.SpinnerEnd projectListSpinnerId)
+    | SaveProjectError e ->
+        printfn "Save new project error: %A" e
+        UpdateResponse.withSpin model Cmd.none (Core.SpinnerEnd projectListSpinnerId)
+    | TransferUnit(projectId) ->
+        let raised = TransferUnitTo projectId
+        UpdateResponse.withRaised model Cmd.none raised
 

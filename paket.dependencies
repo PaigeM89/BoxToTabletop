@@ -29,6 +29,7 @@ nuget Microsoft.AspNetCore.Authentication.JwtBearer
 
 nuget Thoth.Json ~> 5.1
 nuget Thoth.Elmish.Debouncer
+nuget Thoth.Elmish.Toast
 nuget Fable.Core ~> 3
 nuget Thoth.Fetch
 nuget Fable.Browser.Dom ~> 2

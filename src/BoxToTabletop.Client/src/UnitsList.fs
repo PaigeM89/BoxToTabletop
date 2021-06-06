@@ -53,28 +53,30 @@ module UnitsList =
     let unitIdStr = string unit.Id
     let m = model.UnitMap |> Map.add unitIdStr unit
     { model with UnitMap = m }
-  
-  type ExternalMsg =
-  // these are raised externally and handled here
+
+  /// These are raised here, outside the Message loop, and handled in the main Program
+  type RaisedMsg =
+  | DndStart of dnd : DragAndDropModel * draggedUnit : Guid
+  | DndEnd
+  | ClearErrorMessage of messageId : Guid
+  | LiftErrorMessage of title : string * msg : string * messageId : Guid option
+
+
+  /// These messages are raised externally and handled here
+  type ExternalSourceMsg =
   | ProjectChange of proj : Project
   | ColumnSettingsChange of cs : ColumnSettings
   | AddNewUnit of newUnit : Unit
-  // these are raised here and handled externally
-  | DndStart of dnd : DragAndDropModel * draggedUnit : Guid
-  | DndEnd
   | TransferUnitTo of unitId : Guid * projectId : Guid
-  | LiftErrorMessage of messageId : Guid option * message : string
-  | ClearErrorMessage of messageId : Guid
-  | LogErrorMessage of source : string * message : string
-  | SpinnerStart of sourceId : Guid
-  | SpinnerEnd of sourceId : Guid
 
+  /// Messages that initiate an API call
   type ApiCallStartMsg = 
   | LoadUnitsForProject
   | DeleteUnit of unitId : Guid
   | UpdateUnit of unit : Unit
   | TransferUnit of unitId : Guid * newProjectId : Guid
 
+  /// Messages that handle API call responses or errors
   type ApiCallsResponseMsg =
   | LoadUnitsResponse of response : Result<Unit list, string>
   | LoadUnitsFailure of exn
@@ -82,12 +84,16 @@ module UnitsList =
   | TransferUnitResponse of response: Result<Guid, int>
   | TransferUnitFailure of exn
 
+  /// the main Messages for this component
   type Msg =
-  | External of ExternalMsg
+  | External of ExternalSourceMsg
   | DndMsg of DragAndDropMsg * Guid option
-  | RemoveErrorMessage
   | ApiCallStart of msg : ApiCallStartMsg
   | ApiCallResponse of msg : ApiCallsResponseMsg
+
+  let createAddUnitMsg unit = AddNewUnit unit |> External
+  let createProjectChangeMsg project = ProjectChange project |> External
+  let createColumnChangeMsg cs = ColumnSettingsChange cs |> External
 
   module View =
     open Fable.FontAwesome
@@ -172,7 +178,7 @@ module UnitsList =
             Message.message [ Message.Color color ] [
                 Message.header [] [
                     str header
-                    Delete.delete [ Delete.OnClick (fun _ -> dispatch RemoveErrorMessage) ] [ ]
+                    Delete.delete [ Delete.OnClick (fun _ -> () ) ] [] //dispatch RemoveErrorMessage) ] [ ]
                 ]
                 Message.body [] [
                     str message
@@ -186,7 +192,7 @@ module UnitsList =
         | None -> None
 
     let view model dispatch =
-      let saveError = mapSaveError model dispatch
+      //let saveError = mapSaveError model dispatch
       let optionalColumnHeaders =
         [
           for (name, value) in model.ColumnSettings.Enumerate() ->
@@ -219,7 +225,7 @@ module UnitsList =
         |> Table.table [ Table.IsBordered; Table.IsStriped; Table.IsNarrow; Table.IsHoverable; Table.CustomClass "list-units-table" ]
       div [] [
         Section.section [ Section.CustomClass "no-padding-section" ] [
-                if Option.isSome saveError then Option.get saveError
+                //if Option.isSome saveError then Option.get saveError
                 hr []
                 section [
                 ] [
@@ -232,6 +238,8 @@ module UnitsList =
                 ]
             ]
       ]
+
+  type UpdateResponse = Core.UpdateResponse<Model, Msg, RaisedMsg>
 
   module ApiCalls =
     let loadAllUnits (model : Model) =
@@ -273,73 +281,67 @@ module UnitsList =
       printfn "loaded %i units" (List.length units)
       let m = units |> List.map (fun x -> (string x.Id), x)
       let dnd = m |> List.map (fst) |> DragAndDropModel.createWithItems
-      { model with DragAndDrop = dnd; UnitMap = (Map.ofList m) }, Cmd.none
+      { model with DragAndDrop = dnd; UnitMap = (Map.ofList m) }, Cmd.none, None
     | LoadUnitsResponse (Error e) ->
       printfn "Error from API call to load units for project '%A': %A" model.ProjectId e
-      model, Cmd.none
+      let errMsg = LiftErrorMessage ("Error loading units", "There was an error loading units for the selected project. Try re-selecting the project.", None)
+      model, Cmd.none, Some errMsg
     | LoadUnitsFailure e ->
       printfn "Load units error: %A" e
-      model, Cmd.none
+      let errMsg = LiftErrorMessage ("Error loading units", "There was an error loading units for the selected project. Try re-selecting the project.", None)
+      model, Cmd.none, Some errMsg
     | DeleteUnitFailure e ->
       printfn "Delete unit error: %A" e
-      model, Cmd.none
+      let errMsg = LiftErrorMessage ("Error deleting unit", "There was an error deleting the unit. Try reloading the project and, if the unit is listed, deleting it again.", None)
+      model, Cmd.none, Some errMsg
     | TransferUnitResponse (Ok unitId) ->
       let m = model.UnitMap |> Map.remove (string unitId)
       let dnd = model.DragAndDrop |> DragAndDropModel.removeItem (string unitId)
-      { model with UnitMap = m; DragAndDrop = dnd}, Cmd.none
+      { model with UnitMap = m; DragAndDrop = dnd}, Cmd.none, None
     | TransferUnitResponse (Error msg) ->
-      let m = sprintf "Unable to transfer unit: %A" msg
-      let cmd = LiftErrorMessage (None, m) |> External |> Cmd.ofMsg
-      model, cmd
+      printfn "Unable to transfer unit: %A" msg
+      let raised = LiftErrorMessage ("Error transferring unit", "There was an error transferring the unit. If the unit is still listed, try transferring it again.", None)
+      model, Cmd.none, Some raised
     | TransferUnitFailure e ->
       Fable.Core.JS.console.error("Error transferring unit:", e)
-      model, Cmd.none
+      let raised = LiftErrorMessage ("Error transferring unit", "There was an error transferring the unit. If the unit is still listed, try transferring it again.", None)
+      model, Cmd.none, Some raised
 
 
   let handleExternalMsg (model : Model) msg =
     match msg with
     | ProjectChange proj ->
       let cmd = ApiCallStartMsg.LoadUnitsForProject |> ApiCallStart |> Cmd.ofMsg
-      let cmd2 = ColumnSettingsChange (proj.ColumnSettings) |> External |> Cmd.ofMsg
-      { model with ProjectId = proj.Id }, [cmd; cmd2] |> Cmd.batch
+      UpdateResponse.basic { model with ProjectId = proj.Id; ColumnSettings = proj.ColumnSettings } cmd
     | ColumnSettingsChange cs ->
-      { model with ColumnSettings = cs }, Cmd.none
+      UpdateResponse.basic { model with ColumnSettings = cs } Cmd.none
     | AddNewUnit newUnit ->
       let newUnit = if newUnit.Id = Guid.Empty then {newUnit with Id = Guid.NewGuid()} else newUnit
       let m = model.UnitMap |> Map.add (string newUnit.Id) newUnit
       let dnd = model.DragAndDrop |> DragAndDropModel.insertNewItemAtHead 0 (string newUnit.Id)
-      { model with UnitMap = m; DragAndDrop = dnd}, Cmd.none
-    | DndEnd -> failwith "Not Implemented"
+      UpdateResponse.basic { model with UnitMap = m; DragAndDrop = dnd} Cmd.none
     | TransferUnitTo(unitId, projectId) ->
       let cmd = TransferUnit (unitId, projectId) |> ApiCallStart |> Cmd.ofMsg
-      model, cmd
-    // these external messages are for external handling (external out), not external in
-    | SpinnerStart _
-    | SpinnerEnd _
-    | LogErrorMessage _
-    | DndStart _
-    | LiftErrorMessage _ 
-    | ClearErrorMessage _ -> model, Cmd.none
+      UpdateResponse.basic model cmd
 
   let update (model : Model) msg =
     match msg with
     | External externalMsg -> handleExternalMsg model externalMsg
     | DndMsg (dndMsg, Some unitId) ->
       let dnd, cmd = dragAndDropUpdate dndMsg model.DragAndDrop 
-      let externalCmd = DndStart (dnd, unitId) |> External |> Cmd.ofMsg
+      let raised = DndStart (dnd, unitId)
       let dndCmd = Cmd.map (fun m -> DndMsg(m, Some unitId)) cmd
-      { model with DragAndDrop = dnd}, [ externalCmd ; dndCmd] |> Cmd.batch
+      UpdateResponse.withRaised { model with DragAndDrop = dnd} dndCmd raised
     | DndMsg (dndMsg, None) ->
       let dnd, cmd = dragAndDropUpdate dndMsg model.DragAndDrop 
-      let externalCmd = DndStart (dnd, Guid.Empty) |> External |> Cmd.ofMsg
+      let raised = DndStart (dnd, Guid.Empty)
       let dndCmd = Cmd.map (fun m -> DndMsg(m, None)) cmd
-      { model with DragAndDrop = dnd}, [ externalCmd; dndCmd] |> Cmd.batch
-    | RemoveErrorMessage -> model, Cmd.none
+      UpdateResponse.withRaised { model with DragAndDrop = dnd} dndCmd raised
     | ApiCallStart apiMsg ->
-      let spinCmd = SpinnerStart spinnerId |> External |> Cmd.ofMsg
+      let spin = Core.SpinnerStart spinnerId
       let mdl, apiCmd = handleApiCallStartMsg model apiMsg
-      mdl, [ spinCmd; apiCmd ] |> Cmd.batch
+      UpdateResponse.withSpin mdl apiCmd spin
     | ApiCallResponse apiResponseMsg ->
-      let spinCmd = SpinnerEnd spinnerId |> External |> Cmd.ofMsg
-      let mdl, apiCmd = handleApiCallResponseMsg model apiResponseMsg
-      mdl, [ spinCmd; apiCmd ] |> Cmd.batch
+      let spinner = Core.SpinnerEnd spinnerId
+      let mdl, apiCmd, raised = handleApiCallResponseMsg model apiResponseMsg
+      UpdateResponse.create mdl apiCmd (Some spinner) raised

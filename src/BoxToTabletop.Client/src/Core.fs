@@ -8,9 +8,45 @@ open Fable.SimpleHttp
 
 module Core =
 
-    type Updates =
-    /// A change in the visible columns, which needs to be propagated to multiple components.
-    | ColumnSettingsChange of ColumnSettings
+    /// tell the root component to start or stop the spinner
+    type SpinnerUpdate =
+    | SpinnerStart of sourceId : Guid
+    | SpinnerEnd of sourceId : Guid
+
+    type UpdateResponse<'a, 'b, 'd> = {
+        model : 'a
+        cmd : Elmish.Cmd<'b>
+        spinner : SpinnerUpdate option
+        raised : 'd option
+    } with
+
+        static member basic mdl cmd = {
+            model = mdl
+            cmd = cmd
+            spinner = None
+            raised = None
+        }
+
+        static member create mdl cmd spin raised = {
+            model = mdl
+            cmd = cmd
+            spinner = spin
+            raised = raised
+        }
+
+        static member withSpin mdl cmd spin = {
+            model = mdl
+            cmd = cmd
+            spinner = Some spin
+            raised = None
+        }
+
+        static member withRaised mdl cmd raised = {
+            model = mdl
+            cmd = cmd
+            spinner = None
+            raised = Some raised
+        }
 
 module Config =
     type T = {
@@ -186,6 +222,15 @@ module Promises =
         return! Fetch.tryGet(url, decoder = decoder, headers = headers)
     }
 
+    let saveProject (config : Config.T) (project : Project) : Promise<Project> = promise {
+        let url = ProjectRoutes.POST |> buildRouteSimple config
+        let headers = [
+            getBearerHeader config
+        ]
+        let decoder = Types.Project.Decoder
+        return! Fetch.post(url, project, decoder = decoder, headers = headers)
+    }
+
     let updateProject (config : Config.T) (project : Project) : Promise<Project> = promise {
         let url = ProjectRoutes.PUT() |> buildRoute config <| project.Id
         let headers = [
@@ -193,6 +238,12 @@ module Promises =
         ]
         let decoder = Types.Project.Decoder
         return! Fetch.put(url, project, decoder = decoder, headers = headers)
+    }
+
+    let deleteProject (config : Config.T) (projectId : Guid) : Promise<unit> = promise {
+        let url = ProjectRoutes.DELETE() |> buildRoute config <| projectId
+        let headers = [ getBearerHeader config ]
+        return! Fetch.delete(url, headers = headers)
     }
 
     let updateUnitPriorities (config : Config.T) (projId : Guid) (updates : UnitPriority list) : Promise<Result<UnitPriority list, FetchError>> = promise {

@@ -22,7 +22,6 @@ const login = async (targetUrl) => {
       redirect_uri: window.location.origin,
       scope: "openid email profile",
       response_type: "token id_token",
-      audience: 'http://localhost:5000'
     };
 
     if (targetUrl) {
@@ -36,17 +35,11 @@ const login = async (targetUrl) => {
   }
 };
 
-const getClaims = async() => {
-  let opts = {
-    scope: "read:current_user"
-  };
-  let claims = await auth0.getIdTokenClaims(opts);
-  console.log('claims are ', claims);
-  return claims;
-};
 
 const getUser = async () => {
-  return await auth0.getUser();
+  return await auth0.getUser({
+    scope: 'openid profile email'
+  });
 };
 
 const logout = async () => {
@@ -61,13 +54,12 @@ const logout = async () => {
 
 const handleRedirect = async() => {
   const result = await auth0.handleRedirectCallback();
-  console.log('user is logged in! Result: ', result);
   window.history.replaceState({}, document.title, "/");
 }
 
 const getToken = async() => {
   const tokenStr = await auth0.getTokenWithPopup({
-    scope: "openid email profile",
+    scope: 'email',
     audience: 'http://localhost:5000'
   }, {
     timeoutInSeconds: 90
