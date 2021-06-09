@@ -14,16 +14,9 @@ open Fake.IO.FileSystemOperators
 open Fake.IO.Globbing.Operators
 open Fake.Core.TargetOperators
 open Fake.Api
-open Fake.BuildServer
 open Fantomas
-open Fantomas.FakeHelpers
 open System.Text.RegularExpressions
 
-
-BuildServer.install [
-    AppVeyor.Installer
-    Travis.Installer
-]
 
 let environVarAsBoolOrDefault varName defaultValue =
     let truthyConsts = [
@@ -344,11 +337,11 @@ let deleteChangelogBackupFile _ =
     if String.isNotNullOrEmpty changelogBackupFilename then
         Shell.rm changelogBackupFilename
 
-let fslibLogGlobs = !! "paket-files/TheAngryByrd/FsLibLog/**/FsLibLog*.fs"
+let fslibLogGlobs = !! "paket-files/server/TheAngryByrd/FsLibLog/**/FsLibLog*.fs"
 
 let replacements =
-    [ "FsLibLog\\n", "BoxToTabletop\n"
-      "FsLibLog\\.", "BoxToTabletop." ]
+    [ "FsLibLog\\n", "BoxToTabletop.Logging\n"
+      "FsLibLog\\.", "BoxToTabletop.Logging." ]
 
 let ``ReplaceTemplateFilesNamespace should run`` = lazy (
   let files =
@@ -562,23 +555,23 @@ let githubRelease _ =
     |> GitHub.publishDraft
     |> Async.RunSynchronously
 
-let formatCode _ =
-    [
-        srcCodeGlob
-        testsCodeGlob
-    ]
-    |> Seq.collect id
-    // Ignore AssemblyInfo
-    |> Seq.filter(fun f -> f.EndsWith("AssemblyInfo.fs") |> not)
-    |> formatFilesAsync FormatConfig.FormatConfig.Default
-    |> Async.RunSynchronously
-    |> Seq.iter(fun result ->
-        match result with
-        | Formatted(original, tempfile) ->
-            tempfile |> Shell.copyFile original
-            Trace.logfn "Formatted %s" original
-        | _ -> ()
-    )
+// let formatCode _ =
+//     [
+//         srcCodeGlob
+//         testsCodeGlob
+//     ]
+//     |> Seq.collect id
+//     // Ignore AssemblyInfo
+//     |> Seq.filter(fun f -> f.EndsWith("AssemblyInfo.fs") |> not)
+//     |> formatFilesAsync FormatConfig.FormatConfig.Default
+//     |> Async.RunSynchronously
+//     |> Seq.iter(fun result ->
+//         match result with
+//         | Formatted(original, tempfile) ->
+//             tempfile |> Shell.copyFile original
+//             Trace.logfn "Formatted %s" original
+//         | _ -> ()
+//     )
 
 //-----------------------------------------------------------------------------
 // Target Declaration
@@ -607,7 +600,7 @@ Target.create "AssemblyInfo" generateAssemblyInfo
 Target.create "CreatePackages" createPackages
 Target.create "GitRelease" gitRelease
 Target.create "GitHubRelease" githubRelease
-Target.create "FormatCode" formatCode
+//Target.create "FormatCode" formatCode
 Target.create "Release" ignore
 
 //-----------------------------------------------------------------------------

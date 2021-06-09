@@ -8,9 +8,10 @@
 
 var path = require("path");
 var HtmlWebpackPlugin = require('html-webpack-plugin');
+var MiniCssExtractPlugin = require('mini-css-extract-plugin');
 
-// If we're running webpack-dev-server, assume we're in development
-var isProduction = !hasArg(/webpack-dev-server/);
+// If we're running serve, assume we're in development
+var isProduction = !hasArg(/development/);
 
 const getOutputDir = (() => {
     if (isProduction) {
@@ -66,10 +67,24 @@ module.exports = {
             use: "fable-loader"
         },
         {
+            test: /\.(sass|scss|css)$/,
+            use: [
+                isProduction ? MiniCssExtractPlugin.loader : 'style-loader',
+                'css-loader',
+                {
+                    loader: 'sass-loader',
+                    options: {
+                        implementation: require('sass')
+                    }
+                }
+            ],
+        },
+        {
             test: /\.css$/i,
             use: ["style-loader", "css-loader"],
-        }]
-    }
+        }
+    ]},
+    plugins: commonPlugins
 }
 
 function resolve(filePath) {

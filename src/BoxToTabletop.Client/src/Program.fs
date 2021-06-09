@@ -9,12 +9,13 @@ open BoxToTabletop.Domain.Types
 open BoxToTabletop.Client.Core
 open Browser.Types
 open Fable.React
-open Fable.Reaction
+
 open Elmish
 open Elmish.DragAndDrop
-open FSharp.Control
+
 open Fulma
 open Fulma.Extensions.Wikiki
+open Thoth.Elmish
 open BoxToTabletop.Client
 open Elmish.React
 
@@ -39,6 +40,7 @@ type Model = {
 
     SpinnerState : SpinnerState
     IsProjectSectionCollapsed : bool
+    IsProjectSelected : bool
     
     DragAndDrop : DragAndDropModel
     DraggedUnitId : Guid option
@@ -56,6 +58,7 @@ type Model = {
 
             SpinnerState = { Spin = false; Sources = [] }
             IsProjectSectionCollapsed = false
+            IsProjectSelected = false
 
             DragAndDrop = dnd
             DraggedUnitId = None
@@ -102,6 +105,8 @@ type Msg =
 | ProjectsListMsg of ProjectsList.Msg
 | ExpandProjectNav
 | CollapseProjectNav
+| RemoveErrorMessage of messageId : Guid
+| RaiseToast // raises a toast based on the state of the model
 
 module View =
     open Fable.React.Props
@@ -194,6 +199,15 @@ module View =
                         Fa.i [ Fa.Solid.AngleDoubleLeft; Fa.Size Fa.Fa3x;  ] [ ]
                     ]
                 ]
+                Level.right [] [
+                    Switch.switchInline [
+                        Switch.IsRounded
+                        Switch.Checked true
+                        Switch.Id "a-unique-checkbox-name"
+                        Switch.Color Color.IsInfo
+                        Switch.OnChange (fun _ -> printfn "on change for a-unique-checkbox-name")
+                    ] [ str "test swtich" ]
+                ]
                 ProjectsList.View.view model.ProjectsListModel (fun (x : ProjectsList.Msg) -> ProjectsListMsg x |> dispatch)
                 projectSettingsView model
             ]
@@ -207,6 +221,17 @@ module View =
                             Divider.divider [ Divider.IsVertical ]
                     ])
 
+    let errorMessages model dispatch =
+        [
+            for message in model.ErrorMessages do
+                let key = message.Key
+                let value = message.Value
+                match value with
+                | WithTitle (t, m) -> yield AlertMessage.renderError key t m (fun errorId -> RemoveErrorMessage errorId |> dispatch)
+                | JustMessage m -> yield AlertMessage.renderError key "Error" m (fun errorId -> RemoveErrorMessage errorId |> dispatch)
+        ]
+        |> div []
+
     let view (model : Model) (dispatch : Msg -> unit)  =
         let projectView state =
             UnitsList.View.view state.UnitsListModel (fun (x : UnitsList.Msg) ->  UnitsListMsg x |> dispatch)
@@ -218,17 +243,21 @@ module View =
         let dividerOption = divider model
         DragDropContext.context model.DragAndDrop (DndMsg >> dispatch) div [] [
             navbar
-            //AlertMessage.page()
             Container.container [ Container.IsFluid ] [
-                //  Columns.IsVCentered
                 Columns.columns [ Columns.IsGap (Screen.All, Columns.Is1); Columns.IsGrid; ]
                     [
                         leftPanel model dispatch
                         if dividerOption.IsSome then Option.get dividerOption
-                        Column.column [  ] [
-                            inputView model
-                            projectView model
-                        ]
+                        if model.IsProjectSelected then
+                            Column.column [  ] [
+                                errorMessages model dispatch
+                                inputView model
+                                projectView model
+                            ]
+                        else
+                            Column.column [] [
+                                errorMessages model dispatch
+                            ]
                     ]
             ]
         ]
@@ -254,7 +283,6 @@ let handleProjectSettingsMsg (msg : ProjectSettings.Msg) (model : Model) =
             let cmd2 = AddUnit.createProjectChangeMsg project |> AddUnitMsg |> Cmd.ofMsg
             model, [ cmd; cmd2 ] |> Cmd.batch
         | Some (ProjectSettings.RaisedMsg.UpdatedColumnSettings cs) ->
-            printfn "project settings raised column settings change event: %A" cs
             let cmd = AddUnit.createColumnSettingsChangeMsg cs |> AddUnitMsg |> Cmd.ofMsg
             let cmd2 = UnitsList.createColumnChangeMsg cs |> UnitsListMsg |> Cmd.ofMsg
             model, [ cmd; cmd2 ] |> Cmd.batch
@@ -335,12 +363,16 @@ let handleProjectsListMsg (msg : ProjectsList.Msg) (model : Model) =
             let cmd = ProjectSettings.ExternalSourceMsg.ProjectSelected (project) |> ProjectSettings.External |> ProjectSettingsMsg |> Cmd.ofMsg
             let cmd2 = AddUnit.createProjectChangeMsg project |> AddUnitMsg |> Cmd.ofMsg
             let cmd3 = UnitsList.createProjectChangeMsg project |> UnitsListMsg |> Cmd.ofMsg
+            let model = { model with IsProjectSelected = true }
             model, [ cmd; cmd2; cmd3 ] |> Cmd.batch
         | Some (ProjectsList.TransferUnitTo projectId) ->
             printfn "TODO: RE-IMPLEMENT THIS"
             model, Cmd.none
         | Some (ProjectsList.DndMsg dndMsg) ->
             printfn "TODO: RE-IMPLEMENT THIS"
+            model, Cmd.none
+        | Some (ProjectsList.ErrorMessage (title, message)) ->
+            let model = addErrorMessage (Guid.NewGuid()) (WithTitle (title, message)) model
             model, Cmd.none
         | None -> model, Cmd.none
     
@@ -350,7 +382,6 @@ let handleProjectsListMsg (msg : ProjectsList.Msg) (model : Model) =
     { mdl with ProjectsListModel = plModel}, [ cmd; plCmd ] |> Cmd.batch
 
 let handleDndMsg (msg : DragAndDropMsg) (model : Model) =
-    printfn "Handling drag and drop message by explicitly passing it to the units list component"
     let updateResponse = UnitsList.update model.UnitsListModel (UnitsList.Msg.DndMsg (msg, None))
 
     let newDnd = updateResponse.model.DragAndDrop
@@ -361,8 +392,16 @@ let handleDndMsg (msg : DragAndDropMsg) (model : Model) =
     let cmd = Cmd.map UnitsListMsg unitListCmd
     { model with UnitsListModel = unitListMdl; DragAndDrop = newDnd }, [cmd; projListCmd] |> Cmd.batch
 
-let update (msg : Msg) (model : Model) : (Model * Cmd<Msg>) =
-    printfn "root project msg is %A" msg
+open Fable.FontAwesome
+
+let update (msg : Msg) (model : Model) =
+    let maybeAddSpin cmd =
+        //if model.SpinnerState.Spin then
+        let tcmd = Cmd.ofMsg RaiseToast
+        [ cmd; tcmd ] |> Cmd.batch
+        // else
+        //     cmd
+
     match msg with
     | Start ->
         let loadProjectsCmd = Cmd.ofMsg (ProjectsList.Msg.LoadAllProjects)
@@ -373,21 +412,51 @@ let update (msg : Msg) (model : Model) : (Model * Cmd<Msg>) =
         let startCmd = Cmd.ofMsg Start
         let loginCmd = loginCmd  |> Cmd.map LoginMsg
         let model = { model with Config = config }
-        (model.RepopulateConfig()), [ startCmd; loginCmd ] |> Cmd.batch
+        let cmd = [ startCmd; loginCmd ] |> Cmd.batch |> maybeAddSpin
+        (model.RepopulateConfig()), cmd
     | LoginMsg loginMsg ->
         let loginModel, loginCmd = Login.update loginMsg model.LoginModel
-        { model with LoginModel = loginModel }, (loginCmd  |> Cmd.map LoginMsg)
+        { model with LoginModel = loginModel }, (loginCmd |> Cmd.map LoginMsg) |> maybeAddSpin
     | DndMsg dndMsg ->
-        handleDndMsg dndMsg model
-    | AddUnitMsg msg -> handleAddUnitMsg msg model
+        let model, cmd = handleDndMsg dndMsg model
+        model, (cmd |> maybeAddSpin)
+    | AddUnitMsg msg -> 
+        let model, cmd = handleAddUnitMsg msg model
+        model, (cmd |> maybeAddSpin)
     | UnitsListMsg unitsListMsg ->
-        handleUnitsListMsg unitsListMsg model
-    | ProjectSettingsMsg projectSettingsMsg -> handleProjectSettingsMsg projectSettingsMsg model
-    | ProjectsListMsg projListMsg -> handleProjectsListMsg projListMsg model
+        let model, cmd = handleUnitsListMsg unitsListMsg model
+        model, (cmd |> maybeAddSpin)
+    | ProjectSettingsMsg projectSettingsMsg ->
+        let model, cmd = handleProjectSettingsMsg projectSettingsMsg model
+        model, (cmd |> maybeAddSpin)
+    | ProjectsListMsg projListMsg ->
+        let model, cmd = handleProjectsListMsg projListMsg model
+        model, ( cmd |> maybeAddSpin)
     | ExpandProjectNav ->
-        { model with IsProjectSectionCollapsed = false }, Cmd.none
+        let model = { model with IsProjectSectionCollapsed = false }
+        model, ( Cmd.none |> maybeAddSpin)
     | CollapseProjectNav ->
-        { model with IsProjectSectionCollapsed = true }, Cmd.none
+        let model = { model with IsProjectSectionCollapsed = true }
+        model, ( Cmd.none |> maybeAddSpin)
+    | RemoveErrorMessage errorId ->
+        let m = model.ErrorMessages |> Map.remove errorId
+        { model with ErrorMessages = m }, Cmd.none
+    | RaiseToast ->
+        let cmd = Cmd.none
+            // todo: recreate & fix this upstream
+        // if model.SpinnerState.Spin then
+        //     let bldr =
+        //         Toast.message "Loading..."
+        //         |> Toast.icon (Fa.i [Fa.Solid.Spinner; Fa.Spin ] [])
+        //         |> Toast.position Toast.TopRight
+        //         |> Toast.timeout (TimeSpan.FromSeconds (2.0))
+        //         |> Toast.title "title"
+        //     let toastCmd = bldr |> Toast.info
+        //     printfn "toast command is %A" toastCmd
+        //     model, toastCmd
+        // else model, Cmd.none
+        model, cmd
+
 
 
 let init (url : string option) =
@@ -407,6 +476,7 @@ Program.mkProgram
     update
     View.view
 // |> Program.withConsoleTrace
+// |> Toast.Program.withToast Toast.renderToastWithFulma
 |> Program.withReactBatched "root"
 #if DEBUG
 |> Program.runWith (Some "http://localhost:5000")

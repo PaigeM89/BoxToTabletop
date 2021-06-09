@@ -1,57 +1,63 @@
 source https://www.nuget.org/api/v2
 source https://api.nuget.org/v3/index.json
 storage: none
-nuget Argu 6.1.1
-nuget FSharp.Core 5.0.1
+
 nuget Expecto 9.0.2
 nuget YoloDev.Expecto.TestSdk 0.9.2
 nuget Microsoft.NET.Test.Sdk 16.8.0
 nuget altcover ~> 7
-nuget Packaging.Targets 0.1.189
-nuget FSharpx.Collections
-
-nuget Giraffe
-nuget Dapper.FSharp
-nuget Npgsql.FSharp
-nuget FluentMigrator
-nuget FluentMigrator.Runner
-nuget FluentMigrator.Runner.Postgres
-github TheAngryByrd/FsLibLog:0dc37e8471dcece8f89d3f8cc9191be206d6fb01 src/FsLibLog/FsLibLog.fs
-# github TheAngryByrd/FsLibLog:0dc37e8471dcece8f89d3f8cc9191be206d6fb01 adapters/FsLibLog.Adapters.Npgsql/FsLibLog.Adapters.Npgsql.fs
-nuget Serilog
-nuget Serilog.Sinks.Console
-nuget Serilog.Settings.Configuration
-nuget Serilog.AspNetCore
-nuget FsToolkit.ErrorHandling
-nuget FsToolkit.ErrorHandling.TaskResult
-nuget Thoth.Json.Net
-nuget Microsoft.AspNetCore.Authentication.JwtBearer
-
-nuget Thoth.Json ~> 5.1
-nuget Thoth.Elmish.Debouncer
-nuget Thoth.Elmish.Toast
-nuget Fable.Core ~> 3
-nuget Thoth.Fetch
-nuget Fable.Browser.Dom ~> 2
-nuget Fable.Fetch
-nuget Fable.FontAwesome
-nuget Fable.FontAwesome.Free
-nuget Fable.Elmish
-nuget Fable.Elmish.React
-nuget Fulma.Extensions.Wikiki.PageLoader
-nuget Fulma.Extensions.Wikiki.Divider
-nuget Fable.React
-nuget Fable.Promise
-nuget Fulma
-nuget Fable.SimpleHttp
-nuget Elmish.DragAndDrop 0.3.0-alpha02
-
-nuget FSharp.Control.AsyncRx ~> 1.6
-nuget Fable.Reaction ~> 3.5
-
 
 #conflict resolution packages
-nuget System.Security.Permissions >= 5.0
+# nuget System.Security.Permissions >= 5.0
+
+group Server
+  source https://www.nuget.org/api/v2
+  source https://api.nuget.org/v3/index.json
+  storage: none
+  nuget Argu 6.1.1
+  nuget FSharp.Core 5.0.1
+  nuget Giraffe
+  nuget Dapper.FSharp
+  nuget Npgsql.FSharp
+  nuget FluentMigrator
+  nuget FluentMigrator.Runner
+  nuget FluentMigrator.Runner.Postgres
+  github TheAngryByrd/FsLibLog:0dc37e8471dcece8f89d3f8cc9191be206d6fb01 src/FsLibLog/FsLibLog.fs
+  nuget Serilog
+  nuget Serilog.Sinks.Console
+  nuget Serilog.Settings.Configuration
+  nuget Serilog.AspNetCore
+  nuget FsToolkit.ErrorHandling
+  nuget FsToolkit.ErrorHandling.TaskResult
+  nuget Thoth.Json.Net
+  nuget Microsoft.AspNetCore.Authentication.JwtBearer
+  nuget Packaging.Targets 0.1.189
+
+group Client
+  source https://www.nuget.org/api/v2
+  source https://api.nuget.org/v3/index.json  
+  storage: none
+
+  nuget FSharp.Core 5.0.1
+  nuget Thoth.Json ~> 5.1
+  nuget Thoth.Elmish.Debouncer
+  nuget Thoth.Elmish.Toast 3.0.3
+  nuget Fable.Core ~> 3
+  nuget Thoth.Fetch
+  nuget Fable.Browser.Dom ~> 2
+  nuget Fable.Fetch
+  nuget Fable.FontAwesome
+  nuget Fable.FontAwesome.Free
+  nuget Fable.Elmish
+  nuget Fable.Elmish.React
+  nuget Fulma.Extensions.Wikiki.PageLoader
+  nuget Fulma.Extensions.Wikiki.Divider
+  nuget Fulma.Extensions.Wikiki.Switch
+  nuget Fable.React
+  nuget Fable.Promise
+  nuget Fulma
+  nuget Fable.SimpleHttp
+  nuget Elmish.DragAndDrop 0.3.0-alpha02
 
 // [ FAKE GROUP ]
 group Build
@@ -59,18 +65,16 @@ group Build
     source https://www.nuget.org/api/v2
     source https://api.nuget.org/v3/index.json
     nuget Argu
-    nuget Fake.IO.FileSystem 5.20.4-alpha.1642
-    nuget Fake.Core.Target 5.20.4-alpha.1642
-    nuget Fake.Core.ReleaseNotes 5.20.4-alpha.1642
-    nuget FAKE.Core.Environment 5.20.4-alpha.1642
-    nuget Fake.DotNet.Cli 5.20.4-alpha.1642
-    nuget FAKE.Core.Process 5.20.4-alpha.1642
-    nuget Fake.DotNet.AssemblyInfoFile 5.20.4-alpha.1642
-    nuget Fake.Tools.Git 5.20.4-alpha.1642
-    nuget Fake.DotNet.Paket 5.20.4-alpha.1642
-    nuget Fake.Api.GitHub 5.20.4-alpha.1642
-    nuget Fake.BuildServer.AppVeyor 5.20.4-alpha.1642
-    nuget Fake.BuildServer.Travis 5.20.4-alpha.1642
+    nuget Fake.IO.FileSystem 5.20.4
+    nuget Fake.Core.Target 5.20.4
+    nuget Fake.Core.ReleaseNotes 5.20.4
+    nuget FAKE.Core.Environment 5.20.4
+    nuget Fake.DotNet.Cli 5.20.4
+    nuget FAKE.Core.Process 5.20.4
+    nuget Fake.DotNet.AssemblyInfoFile 5.20.4
+    nuget Fake.Tools.Git 5.20.4
+    nuget Fake.DotNet.Paket 5.20.4
+    nuget Fake.Api.GitHub 5.20.4
     nuget Fantomas
 
 #group Analyzers

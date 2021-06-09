@@ -43,7 +43,8 @@ type ExternalSourceMsg =
 type RaisedMsg =
 | ProjectSelected of project : Project
 | TransferUnitTo of projectId : Guid
-| DndMsg of DragAndDropMsg 
+| DndMsg of DragAndDropMsg
+| ErrorMessage of title: string * message: string
 
 
 type Msg =
@@ -171,8 +172,10 @@ let update model msg =
             let model = { model with Projects = projects }
             UpdateResponse.withSpin model Cmd.none (Core.SpinnerEnd projectListSpinnerId)
     | ProjectsLoadError e ->
-        printfn "%A" e
-        UpdateResponse.withSpin model Cmd.none (Core.SpinnerEnd projectListSpinnerId)
+        printfn "Error loading projects: %A" e
+        let raised = ErrorMessage ("Error loading projects", "There was an error loading your projects.")
+        let spin = Some (Core.SpinnerEnd projectListSpinnerId)
+        UpdateResponse.create model Cmd.none spin (Some raised)
     | Selected proj ->
         let model = { model with SelectedProject = Some (proj.Id) }
         let raised = ProjectSelected proj
@@ -184,13 +187,14 @@ let update model msg =
         let model = {model with NewProjectName = value}
         UpdateResponse.basic model Cmd.none
     | CreateNewProject ->
-        let newProj = { Project.Empty() with Name = model.NewProjectName }
+        let newProj = { Project.Empty() with Name = model.NewProjectName; Id = Guid.NewGuid() }
         let model, cmd = ApiCalls.saveNewProject model newProj
         UpdateResponse.withSpin model cmd (Core.SpinnerStart projectListSpinnerId)
     | SaveProjectSuccess proj ->
         let projects = proj :: model.Projects
-        let model = { model with Projects = projects; NewProjectName = "" }
-        UpdateResponse.withSpin model Cmd.none (Core.SpinnerEnd projectListSpinnerId)
+        let model = { model with Projects = projects; NewProjectName = ""; SelectedProject = Some proj.Id }
+        let raised = RaisedMsg.ProjectSelected proj
+        UpdateResponse.create model Cmd.none (Some (Core.SpinnerEnd projectListSpinnerId)) (Some raised)
     | SaveProjectError e ->
         printfn "Save new project error: %A" e
         UpdateResponse.withSpin model Cmd.none (Core.SpinnerEnd projectListSpinnerId)

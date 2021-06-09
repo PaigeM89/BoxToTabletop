@@ -1,3 +1,4 @@
+group Client
 FSharp.Core
 Fable.Core
 Fable.Browser.Dom
@@ -7,20 +8,15 @@ Thoth.Elmish.Debouncer
 Thoth.Fetch
 Thoth.Elmish.Toast
 Fable.Promise
-Fable.Reaction
+Fable.SimpleHttp
 Fable.React
+Fable.Elmish
+Fable.Elmish.React
 
 Fulma
 Fable.FontAwesome
 Fable.FontAwesome.Free
 Fulma.Extensions.Wikiki.PageLoader
 Fulma.Extensions.Wikiki.Divider
-Fable.SimpleHttp
-
-Fable.Elmish
-Fable.Elmish.React
-
+Fulma.Extensions.Wikiki.Switch
 Elmish.DragAndDrop
-
-FSharp.Control.AsyncRx
-FSharpx.Collections

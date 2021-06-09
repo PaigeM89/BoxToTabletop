@@ -19,16 +19,17 @@ open Microsoft.AspNetCore.Authentication.JwtBearer
 module Webhost =
     open BoxToTabletop
     open BoxToTabletop.Routing
+    open BoxToTabletop.Repository
 
     let configureCors (builder : CorsPolicyBuilder) =
         builder.WithOrigins([|"http://localhost:8090"; "http://localhost:5000"|]).AllowAnyMethod().AllowAnyHeader() |> ignore
 
-    let configureApp (deps : Routing.Dependencies) (app : IApplicationBuilder) =
+    let configureApp (app : IApplicationBuilder) =
         // Add Giraffe to the ASP.NET Core pipeline
         app
             .UseCors(configureCors)
             .UseAuthentication()
-            .UseGiraffe (Routing.webApp deps)
+            .UseGiraffe (Routing.webApp())
 
 
     let configureJwtServices (config : ApplicationConfig) (svcs : IServiceCollection) =
@@ -46,20 +47,29 @@ module Webhost =
 #endif
             )
 
+    let configureDependencyInjection (config : ApplicationConfig) (svcs : IServiceCollection) =
+        let connFunc = config.PostgresConfig.PostgresConnectionString() |> Repository.createDbConnection
+        svcs
+            .AddScoped<ILoadProjects, ProjectLoader>(fun _ -> new ProjectLoader(connFunc) )
+            .AddScoped<IModifyProjects, ProjectModifier>(fun _ -> new ProjectModifier(connFunc) )
+            .AddScoped<ILoadUnits, UnitLoader>(fun _ -> new UnitLoader(connFunc) )
+            .AddScoped<IModifyUnits, UnitModifier>(fun _ -> new UnitModifier(connFunc) )
+
     let configureServices (config : ApplicationConfig) (services : IServiceCollection) =
         // Add Giraffe dependencies
         services
             .AddCors()
             .AddGiraffe()
+            |> configureDependencyInjection config
             |> configureJwtServices config
             |> ignore
 
-    let buildHost (config : ApplicationConfig) (deps : Routing.Dependencies) =
+    let buildHost (config : ApplicationConfig) =
         Host.CreateDefaultBuilder()
             .ConfigureWebHostDefaults(
                 fun webHostBuilder ->
                     webHostBuilder
-                        .Configure(configureApp deps)
+                        .Configure(configureApp)
                         .ConfigureServices(configureServices config)
                         |> ignore)
             .Build()

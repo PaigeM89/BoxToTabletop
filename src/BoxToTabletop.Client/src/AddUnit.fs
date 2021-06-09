@@ -80,10 +80,6 @@ module AddUnit =
     | UpdatePartialData of newPartial : PartialData
     /// Called when 'Add' is clicked. Does not contain a unit, as the input has not been verified.
     | TryAddNewUnit
-    /// Adds a new, valid unit.
-    //| AddNewUnit of unit : Unit
-    /// There are invalid inputs to create a new unit
-    //| ShowInputErrors
     | External of ExternalMsg
 
     let createColumnSettingsChangeMsg cs = ColumnSettingsChange cs |> External
@@ -147,7 +143,7 @@ module AddUnit =
         let view model dispatch =
             let partial = model.PartialData
             let cs = model.ColumnSettings
-            printfn "column settings when drawing add unit is %A" cs
+            // printfn "column settings when drawing add unit is %A" cs
             let func (ev : Browser.Types.Event) transform =
                 let c = Parsing.parseIntOrZero ev.Value
                 UpdatePartialData (transform partial c)
@@ -190,8 +186,6 @@ module AddUnit =
 
     let update model msg =
         match msg with
-        // | UpdateColumnSettings cs ->
-        //     { model with Model.ColumnSettings = cs }, Cmd.none
         | External ext ->
             let mdl, cmd = handleExternalMsg model ext
             UpdateResponse.basic mdl cmd
@@ -200,7 +194,6 @@ module AddUnit =
             UpdateResponse.basic mdl Cmd.none
         | TryAddNewUnit ->
             if model.PartialData.IsValid() then
-                printfn "Setting new unit project id to %A" model.ProjectId
                 let unit = model.PartialData.ToUnit() |> Model.Unit.setProjectId model.ProjectId
                 let raised = NewUnitAdded unit
                 let mdl = { model with PartialData = PartialData.Init() }
@@ -208,10 +201,3 @@ module AddUnit =
             else
                 let mdl = Model.toggleShowErrors true model
                 UpdateResponse.basic mdl Cmd.none
-        // | AddNewUnit _ ->
-        //     model, Cmd.none
-        // | ShowInputErrors ->
-        //     Model.toggleShowErrors false model, Cmd.none
-        // | External (AddNewUnitSuccess) ->
-        //     { model with PartialData = PartialData.Init() }, Cmd.none
-

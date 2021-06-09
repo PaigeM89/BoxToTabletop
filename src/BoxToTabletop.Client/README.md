@@ -10,6 +10,10 @@ https://gist.github.com/cmeeren/6e1ff19bd64c9dac57d8bbc56b8ec2a8
 https://fable.io/blog/Announcing-Fable-React-5.html
 https://blog.nojaf.com/2018/11/10/react-hooks-in-fable/
 
+
+todo:
+figure out Femto
+
 old `npm-run-start` value: `dotnet fable watch src --run webpack-dev-server`
 
 ## Requirements

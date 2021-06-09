@@ -1,7 +1,7 @@
 {
   "private": true,
   "scripts": {
-    "start": "webpack-dev-server",
+    "start": "webpack serve --mode=development",
     "build": "webpack --mode development",
     "prod": "webpack",
     "run": "webpack-dev-server"
@@ -11,12 +11,16 @@
     "css-loader": "^5.0.2",
     "fable-compiler": "^2.13.0",
     "fable-loader": "^2.1.9",
-    "html-webpack-plugin": "^5.2.0",
+    "html-webpack-plugin": "^5.3.1",
+    "mini-css-extract-plugin": "^1.6.0",
     "react-dnd": "^13.1.1",
+    "sass": "^1.34.1",
+    "sass-loader": "^12.0.0",
+    "style-loader": "^2.0.0",
     "ts-loader": "^9.2.2",
     "typescript": "^4.3.2",
-    "webpack": "^4.46.0",
-    "webpack-cli": "^3.3.0",
+    "webpack": "^5.38.1",
+    "webpack-cli": "^4.7.2",
     "webpack-dev-server": "^3.11.2"
   },
   "name": "BoxToTabletop.Client",
@@ -24,6 +28,7 @@
   "dependencies": {
     "@auth0/auth0-spa-js": "^1.15.0",
     "@fortawesome/fontawesome-free": "^5.15.2",
+    "bulma-switch": "^2.0.0",
     "react": "^17.0.1",
     "react-dom": "^17.0.1"
   }

@@ -151,7 +151,7 @@ module Promises =
         let url = UnitRoutes.PUT() |> buildRoute config <| unit.Id
         let data = Types.Unit.Encoder unit
         let headers = [
-            HttpRequestHeaders.Origin "*"
+            // HttpRequestHeaders.Origin "*"
             getBearerHeader config
         ]
         let decoder = Types.Unit.Decoder

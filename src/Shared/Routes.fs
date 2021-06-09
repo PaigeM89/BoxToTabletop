@@ -32,28 +32,10 @@ module ProjectRoutes =
         let PrioritiesRoot = "priorities"
         let PUT() = PrintfFormat<_,_,_,_,_> (Root %% "%O" %% PrioritiesRoot)
 
-    [<Obsolete("Use the root level UnitRoutes", true)>]
-    module UnitRoutes =
-        // all units are accessed from within a project
-        let Root = Root %% "%O/units"
-        let Units = "units"
-        let GETALL() = PrintfFormat<_,_,_,_,_> Root
-        let GET() = PrintfFormat<_,_,_,_,_> (Root %% "%O")
-        let POST() = PrintfFormat<_,_,_,_,_> Root
-        let PUT() = PrintfFormat<_,_,_,_,_> (Root %% "%O")
-        let PUT2 =
-            fun baseUrl (projId : Guid) ->
-                let b = PUT2 baseUrl projId
-                fun (unitId : Guid) -> Root %% b %% Units %% (sprintf "%O" unitId)
-        let DELETE() = PrintfFormat<_,_,_,_,_> (Root %% "%O")
-
-        module Transfer =
-            let Root = Root %% "%O/transfer"
-            let POST() = PrintfFormat<_,_,_,_,_> Root
-
 module UnitRoutes =
     let Root = Root %% "units"
     let GET() = PrintfFormat<_,_,_,_,_> (Root %% "%O")
+    let PUTCollection = Root
     let PUT() = PrintfFormat<_,_,_,_,_> (Root %% "%O")
     let DELETE() = PrintfFormat<_,_,_,_,_> (Root %% "%O")
 

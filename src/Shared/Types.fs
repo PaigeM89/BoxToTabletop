@@ -80,7 +80,12 @@ module Types =
                     "points", Encode.int unit.Points
                     "ownerId", Encode.string unit.OwnerId
                 ]
-            
+
+        member this.Encode() = Unit.Encoder(this)
+
+
+        static member EncodeList (units: Unit list) =
+            Encode.list (units |> List.map (fun u -> u.Encode()))
 
     type UnitPriority = {
         UnitId : Guid
@@ -159,7 +164,7 @@ module Types =
         Name : string
         //Category : ProjectCategory option
         ColumnSettings : ColumnSettings
-        Units : Unit list
+        // Units : Unit list
         IsPublic : bool
         OwnerId : string
     } with
@@ -168,7 +173,7 @@ module Types =
             Name = "Default Project"
             //Category = None
             ColumnSettings = ColumnSettings.Empty()
-            Units = []
+            // Units = []
             IsPublic = true
             OwnerId = ""
         }
@@ -179,7 +184,7 @@ module Types =
                     Project.Id = get.Required.Field "id" Decode.guid
                     Name = get.Required.Field "name" Decode.string
                     IsPublic = get.Required.Field "isPublic" Decode.bool
-                    Units = [] //will be populated in a 2nd call
+                    // Units = [] //will be populated in a 2nd call
                     OwnerId = get.Required.Field "ownerId" Decode.string
                     ColumnSettings = {
                         AssemblyVisible = get.Required.Field "assemblyVisible" Decode.bool

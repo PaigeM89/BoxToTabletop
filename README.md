@@ -8,18 +8,16 @@ MVP:
 * batch events to send to avoid overhwelming the server
     * with per-action updates when editing a row, this is a very strict requirement
     * run batch on page unload
-* use ExternalMsg : https://medium.com/@MangelMaxime/my-tips-for-working-with-elmish-ab8d193d52fd
 * Use Toast for save alert : https://github.com/thoth-org/Thoth.Elmish.Toast
+    * [ ] Needs an upstream fix, i think
+        * could be due to the `CustomEventInit` now needing type parameters?
 
-debounce for batching? 
-
-https://thoth-org.github.io/Thoth.Elmish.Debouncer/
 
 New FSharp.Dapper for DB?
-
 https://codeburst.io/hosting-an-asp-net-core-app-on-docker-with-https-642cde4f04e8
 
-Requirements: 
+Requirements:
+* Dark mode
 * projects & categories
     * Tree view with N levels, N options at root
     * page loader?
@@ -38,7 +36,7 @@ Requirements:
 * next 10
 * stats
     * by date, editable, with graphs
-* setting to not do individual counts each step
+* setting to not do individual counts each step / checkboxes for everything
 * export to CSV
 * timelines w/ goals, show progress
 * Fider for feedback (once public)
@@ -46,6 +44,8 @@ Requirements:
 minor changes to make:
 * make add unit box thing collapsable
 * make project box thing collapsable
+* Collapsable "new unit" section
+* Summary
 
 far future: 
 * integrate math

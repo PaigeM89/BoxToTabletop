@@ -98,23 +98,7 @@ module Main =
     LogProvider.setLoggerProvider (Providers.SerilogProvider.create ())
     Serilog.Log.Logger <- log
 
-
     type CreateConn = unit -> System.Data.IDbConnection
-    let createDependencies (createConnection : unit -> System.Data.IDbConnection) =
-        {
-            Routing.Dependencies.createConnection = createConnection
-            Routing.Dependencies.loadAllUnits = Repository.loadUnits
-            Routing.Dependencies.loadUnit = Repository.loadUnit
-            Routing.Dependencies.saveUnit = Repository.insertUnit
-            Routing.Dependencies.updateUnit = Repository.updateUnit
-            Routing.Dependencies.deleteUnit = Repository.deleteUnit
-            Routing.Dependencies.loadAllProjects = Repository.loadAllProjects
-            Routing.Dependencies.loadProject = Repository.loadProject
-            Routing.Dependencies.saveProject = Repository.saveProject
-            Routing.Dependencies.deleteProject = Repository.deleteUnit
-            Routing.Dependencies.updateProject = Repository.updateProject
-            Routing.Dependencies.updatePriority = Repository.updatePriority
-        }
 
     let parseAndStart (results : ParseResults<CLIArguments>) =
         let logger = LogProvider.getLoggerByFunc()
@@ -127,8 +111,7 @@ module Main =
             let connstr = config.PostgresConfig.PostgresConnectionString()
             MigrationRunner.run connstr
 
-            let deps = Repository.createDbConnection connstr |> createDependencies
-            let host = BoxToTabletop.Webhost.buildHost config deps
+            let host = BoxToTabletop.Webhost.buildHost config
             !! "Running web host..." |> logger.info
             host.Run()
         | Error e ->

@@ -43,3 +43,11 @@
     font-family: "Helvetica Neue", sans-serif;
     font-size: larger;
 }
+
+.hidden {
+    display: none;
+}
+
+.pad-left-10 {
+    padding-left: 10px;
+}

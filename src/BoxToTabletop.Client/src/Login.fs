@@ -189,7 +189,6 @@ module Login =
     | TryGetUser -> model, tryGetUser()
     | GotUser user ->
       let user = createFromObject user
-      printfn "user is %A" user
       { model with User = Some user }, tryGetToken()
     | GetUserException e ->
       printfn "Get user exception: %A" e

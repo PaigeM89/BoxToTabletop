@@ -9,8 +9,8 @@ open Browser
 open Elmish
 open Elmish.DragAndDrop
 open System
-open FSharpx.Collections
 open Fulma
+open Thoth.Elmish
 
 module UnitsList = 
   let dndConfig = {
@@ -32,6 +32,13 @@ module UnitsList =
   | InfoMessage of msg : string
   | ErrorMessage of msg : string
 
+  type UnitChange = Types.Unit
+  type PrioritiesChange = (int * Guid) list
+
+  type ProjectChangeStatus = 
+  | Unloading of newProject : Project
+  | NoPendingChange
+
   type Model = {
     DragAndDrop : DragAndDropModel
     ProjectId : Guid
@@ -39,6 +46,12 @@ module UnitsList =
     UnitMap : Map<string, Types.Unit>
     ErrorMessage : AlertMessage option
     Config : Config.T
+    UnitChanges : Map<Guid, UnitChange>
+    PriorityChanges : PrioritiesChange
+
+    Debouncer : Debouncer.State
+    ProjectChangeStatus : ProjectChangeStatus
+    //PendingChanges : PendingChange list
   } with
     static member Init(config : Config.T, dndModel : DragAndDropModel) = {
       DragAndDrop = dndModel
@@ -47,12 +60,34 @@ module UnitsList =
       UnitMap = Map.empty
       ErrorMessage = None
       Config = config
+      UnitChanges = Map.empty
+      PriorityChanges = []
+
+      Debouncer = Debouncer.create()
+      ProjectChangeStatus = NoPendingChange
     }
 
   let replaceUnit (unit : Types.Unit) model =
     let unitIdStr = string unit.Id
     let m = model.UnitMap |> Map.add unitIdStr unit
     { model with UnitMap = m }
+
+  let updatePriorities model =
+    let items = model.DragAndDrop.ElementIds() |> List.tryHead |> Option.defaultValue []
+    let priorities =
+      items
+      |> List.mapi (fun index item ->
+        match Map.tryFind item model.UnitMap with
+        | Some x -> Some (index, x.Id)
+        | None -> None
+      )
+      |> List.choose id
+    { model with PriorityChanges = priorities }
+
+  let setUnitChange (unit : UnitChange) model =
+    printfn "adding unit change: %A" unit
+    let changesMap = model.UnitChanges |> Map.add unit.Id  unit
+    { model with UnitChanges = changesMap } |> replaceUnit unit
 
   /// These are raised here, outside the Message loop, and handled in the main Program
   type RaisedMsg =
@@ -75,6 +110,7 @@ module UnitsList =
   | DeleteUnit of unitId : Guid
   | UpdateUnit of unit : Unit
   | TransferUnit of unitId : Guid * newProjectId : Guid
+  // | BeginProjectChange of newProject : Project
 
   /// Messages that handle API call responses or errors
   type ApiCallsResponseMsg =
@@ -83,6 +119,9 @@ module UnitsList =
   | DeleteUnitFailure of exn
   | TransferUnitResponse of response: Result<Guid, int>
   | TransferUnitFailure of exn
+  | UpdateUnitSuccess of response : Result<Unit, Thoth.Fetch.FetchError>
+  | UpdateUnitFailure of exn
+  | NoUnitsToUpdate
 
   /// the main Messages for this component
   type Msg =
@@ -90,6 +129,10 @@ module UnitsList =
   | DndMsg of DragAndDropMsg * Guid option
   | ApiCallStart of msg : ApiCallStartMsg
   | ApiCallResponse of msg : ApiCallsResponseMsg
+  | AddUnitChange of change : UnitChange
+  | DebouncerSelfMsg of Debouncer.SelfMessage<Msg>
+  | DispatchChanges
+  | UnloadCompleted
 
   let createAddUnitMsg unit = AddNewUnit unit |> External
   let createProjectChangeMsg project = ProjectChange project |> External
@@ -115,14 +158,17 @@ module UnitsList =
       let cs = model.ColumnSettings
       let changeHandler transform (ev : Browser.Types.Event) =
           let x = Parsing.parseIntOrZero ev.Value
-          UpdateUnit (transform unit x)
-          |> ApiCallStart |> dispatch
+          printfn "updating unit %A with a value %A" unit.Name x
+          let unit = transform unit x
+          unit |> AddUnitChange |> dispatch
 
       let modelCountFunc (ev : Browser.Types.Event) = changeHandler (fun u x -> { u with Models = x }) ev
       let assembledFunc  (ev : Browser.Types.Event) = changeHandler (fun u x -> { u with Assembled = x }) ev
       let primedFunc  (ev : Browser.Types.Event) = changeHandler (fun u x -> { u with Primed = x }) ev
       let paintedFunc  (ev : Browser.Types.Event) = changeHandler (fun u x -> { u with Painted = x }) ev
       let basedFunc  (ev : Browser.Types.Event) = changeHandler (fun u x -> { u with Based = x }) ev
+      let powerFunc  (ev : Browser.Types.Event) = changeHandler (fun u x -> { u with Power = x }) ev
+      let pointsFunc  (ev : Browser.Types.Event) = changeHandler (fun u x -> { u with Points = x }) ev
       let nc = Input.Color NoColor
       let unitIdBuilder str = unit.Id.ToString() + "-" + str
       let optionalColumns = [
@@ -130,13 +176,18 @@ module UnitsList =
           if cs.PrimedVisible then td [] [ numericInput nc (unitIdBuilder "primed") unit.Primed primedFunc ]
           if cs.PaintedVisible then td [] [ numericInput nc (unitIdBuilder "painted") unit.Painted paintedFunc ]
           if cs.BasedVisible then td [] [ numericInput nc (unitIdBuilder "based") unit.Based basedFunc ]
+          if cs.PowerVisible then td [] [ numericInput nc (unitIdBuilder "power") unit.Power powerFunc ]
+          if cs.PointsVisible then td [] [ numericInput nc (unitIdBuilder "points") unit.Points pointsFunc ]
       ]
 
       let dndModel = model.DragAndDrop
       let rowId = unit.Id.ToString()
       let handleStyles = if dndModel.Moving.IsSome then [] else [ Cursor "grab" ]
 
-      let content = 
+      let nameChangeHandler (ev : Browser.Types.Event) =
+        { unit with Name = ev.Value } |> AddUnitChange |> dispatch
+
+      let content =
         [
           td [] [
             Level.level [
@@ -153,7 +204,7 @@ module UnitsList =
             ]
           td [] [
               //todo: shrink this a little
-              Input.input [ Input.ValueOrDefault unit.Name ]
+              Input.input [ Input.ValueOrDefault unit.Name; Input.OnChange nameChangeHandler ]
           ]
           td [] [
                 numericInput (Input.Color NoColor) (unit.Id.ToString() + "-models") unit.Models modelCountFunc
@@ -213,7 +264,7 @@ module UnitsList =
         model.DragAndDrop.ElementIds()
         |> List.concat
         |> List.mapi (fun index unitId ->
-          let unit= model.UnitMap |> Map.find unitId
+          let unit = model.UnitMap |> Map.find unitId
           drawRow model dispatch index unit
         )
 
@@ -259,6 +310,20 @@ module UnitsList =
       let cmd = Cmd.OfAsync.either asyncCmd () TransferUnitResponse TransferUnitFailure
       model, cmd
 
+    let updateUnits (model : Model) =
+      let units = model.UnitChanges |> Map.toList |> List.map snd
+      let commands = 
+        [ for unit in units do
+            let promise unitArg = Promises.updateUnit model.Config unitArg
+            Cmd.OfPromise.either promise unit UpdateUnitSuccess UpdateUnitFailure
+        ]
+      if List.length commands > 0 then
+        commands |> Cmd.batch
+      else
+        printfn "no unit changes to dispatch, returning empty command"
+        Cmd.ofMsg NoUnitsToUpdate
+
+
 
   let handleApiCallStartMsg (model : Model) msg =
     match msg with
@@ -278,9 +343,10 @@ module UnitsList =
   let handleApiCallResponseMsg (model : Model) msg =
     match msg with
     | LoadUnitsResponse (Ok units) ->
-      printfn "loaded %i units" (List.length units)
+      // printfn "loaded %i units" (List.length units)
       let m = units |> List.map (fun x -> (string x.Id), x)
       let dnd = m |> List.map (fst) |> DragAndDropModel.createWithItems
+      let model = { model with DragAndDrop = dnd; UnitMap = (Map.ofList m); ProjectChangeStatus = NoPendingChange }
       { model with DragAndDrop = dnd; UnitMap = (Map.ofList m) }, Cmd.none, None
     | LoadUnitsResponse (Error e) ->
       printfn "Error from API call to load units for project '%A': %A" model.ProjectId e
@@ -306,12 +372,39 @@ module UnitsList =
       Fable.Core.JS.console.error("Error transferring unit:", e)
       let raised = LiftErrorMessage ("Error transferring unit", "There was an error transferring the unit. If the unit is still listed, try transferring it again.", None)
       model, Cmd.none, Some raised
+    | UpdateUnitSuccess( Ok unit ) ->
+      let unitMap = model.UnitMap |> Map.add (string unit.Id) unit
+      let changeMap = model.UnitChanges |> Map.remove unit.Id
+      let model = { model with UnitMap = unitMap; UnitChanges = changeMap }
+      match model.ProjectChangeStatus with
+      | NoPendingChange -> model, Cmd.none, None
+      | Unloading proj ->
+        if model.UnitChanges = Map.empty then
+          {model with ProjectChangeStatus = NoPendingChange; ProjectId = proj.Id }, Cmd.ofMsg (LoadUnitsForProject |> ApiCallStart), None
+        else
+          model, Cmd.none, None
+    | UpdateUnitSuccess( Error fetchError ) ->
+      printfn "Fetch error when updating unit: %A" fetchError
+      let raised = LiftErrorMessage ("Error Saving unit", "There was an error saving one or more units.", None)
+      model, Cmd.none, Some raised
+    | UpdateUnitFailure e ->
+      printfn "Error updating unit: %A" e
+      model, Cmd.none, None
+    | NoUnitsToUpdate ->
+      match model.ProjectChangeStatus with
+      | NoPendingChange -> model, Cmd.none, None
+      | Unloading proj ->
+        if model.UnitChanges = Map.empty then
+          {model with ProjectChangeStatus = NoPendingChange; ProjectId = proj.Id }, Cmd.ofMsg (LoadUnitsForProject |> ApiCallStart), None
+        else
+          model, Cmd.none, None
 
 
   let handleExternalMsg (model : Model) msg =
     match msg with
     | ProjectChange proj ->
-      let cmd = ApiCallStartMsg.LoadUnitsForProject |> ApiCallStart |> Cmd.ofMsg
+      let cmd = Cmd.ofMsg DispatchChanges
+      let model = { model with ProjectChangeStatus = Unloading proj }
       UpdateResponse.basic { model with ProjectId = proj.Id; ColumnSettings = proj.ColumnSettings } cmd
     | ColumnSettingsChange cs ->
       UpdateResponse.basic { model with ColumnSettings = cs } Cmd.none
@@ -319,14 +412,24 @@ module UnitsList =
       let newUnit = if newUnit.Id = Guid.Empty then {newUnit with Id = Guid.NewGuid()} else newUnit
       let m = model.UnitMap |> Map.add (string newUnit.Id) newUnit
       let dnd = model.DragAndDrop |> DragAndDropModel.insertNewItemAtHead 0 (string newUnit.Id)
-      UpdateResponse.basic { model with UnitMap = m; DragAndDrop = dnd} Cmd.none
+      let cmd = AddUnitChange newUnit |> Cmd.ofMsg
+      UpdateResponse.basic { model with UnitMap = m; DragAndDrop = dnd} cmd
     | TransferUnitTo(unitId, projectId) ->
       let cmd = TransferUnit (unitId, projectId) |> ApiCallStart |> Cmd.ofMsg
       UpdateResponse.basic model cmd
 
   let update (model : Model) msg =
     match msg with
+    | DebouncerSelfMsg debouncerMsg ->
+      let (debouncerModel, debouncerCmd) = Debouncer.update debouncerMsg model.Debouncer
+      UpdateResponse.basic { model with Debouncer = debouncerModel} debouncerCmd
     | External externalMsg -> handleExternalMsg model externalMsg
+    | DndMsg (DragEnd, unitIdOpt) ->
+      let dnd, cmd = dragAndDropUpdate DragEnd model.DragAndDrop
+      let raised = DndEnd
+      let dndCmd = Cmd.map (fun m -> DndMsg(m, unitIdOpt)) cmd
+      let mdl = { model with DragAndDrop = dnd } |> updatePriorities
+      UpdateResponse.withRaised mdl dndCmd raised
     | DndMsg (dndMsg, Some unitId) ->
       let dnd, cmd = dragAndDropUpdate dndMsg model.DragAndDrop 
       let raised = DndStart (dnd, unitId)
@@ -345,3 +448,27 @@ module UnitsList =
       let spinner = Core.SpinnerEnd spinnerId
       let mdl, apiCmd, raised = handleApiCallResponseMsg model apiResponseMsg
       UpdateResponse.create mdl apiCmd (Some spinner) raised
+    | AddUnitChange unit ->
+      let (debouncerModel, debouncerCmd) =
+        model.Debouncer
+        |> Debouncer.bounce (TimeSpan.FromSeconds 30.) "unit_changes" DispatchChanges
+      
+      let mdl = setUnitChange unit model
+      let mdl = { mdl with Debouncer = debouncerModel }
+
+      UpdateResponse.basic mdl (Cmd.map DebouncerSelfMsg debouncerCmd)
+    | DispatchChanges ->
+      printfn "Dispatching changes" //, model change status is %A" model.ProjectChangeStatus
+      let spin = Core.SpinnerStart spinnerId
+      let cmd = ApiCalls.updateUnits model |> Cmd.map ApiCallResponse
+      
+      UpdateResponse.withSpin model cmd spin
+    | UnloadCompleted ->
+      match model.ProjectChangeStatus with
+      | NoPendingChange -> UpdateResponse.basic model Cmd.none
+      | Unloading(newProject) ->
+        let model = { model with ProjectId = newProject.Id; ProjectChangeStatus = NoPendingChange }
+        let cmd = ApiCallStartMsg.LoadUnitsForProject |> ApiCallStart |> Cmd.ofMsg
+        let spin = Core.SpinnerStart spinnerId
+        UpdateResponse.withSpin model cmd spin
+

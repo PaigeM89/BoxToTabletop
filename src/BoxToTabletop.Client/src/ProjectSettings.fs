@@ -62,6 +62,7 @@ module ProjectSettings =
         open Fable.React.Helpers
         open Fable.React.Props
         open Fable.React.Standard
+        open Fulma.Extensions.Wikiki
 
         let deleteProjectModal dispatch =
             Modal.modal [ Modal.IsActive true ] [
@@ -93,16 +94,25 @@ module ProjectSettings =
             ]
 
         let checkBoxFor cbName isChecked  oc =
-            Panel.checkbox [] [
-                input [
-                    Class "toggle"
-                    Id cbName
-                    Type "checkbox"
-                    Checked isChecked
-                    OnChange oc
-                ]
-                label [ HtmlFor cbName ] [ str cbName ]
+            Panel.Block.div [] [
+                Switch.switch [
+                    Switch.IsRtl
+                    Switch.Checked isChecked
+                    Switch.OnChange oc
+                    Switch.Id (cbName + "-checkbox")
+                    Switch.Color Color.IsInfo
+                ] [ str cbName ]
             ]
+            // Panel.checkbox [] [
+            //     input [
+            //         Class "toggle"
+            //         Id cbName
+            //         Type "checkbox"
+            //         Checked isChecked
+            //         OnChange oc
+            //     ]
+            //     label [ HtmlFor cbName ] [ str cbName ]
+            // ]
 
         let createCheckboxes (projOpt : Project option) dispatch =
             match projOpt with
@@ -140,6 +150,7 @@ module ProjectSettings =
                     yield! createCheckboxes model.Project dispatch
                     Panel.Block.div [] [
                         Button.button [ 
+                            Button.IsFullWidth
                             Button.Color IsDanger
                             Button.OnClick (fun _ -> DeleteInitiated |> dispatch)
                         ] [
