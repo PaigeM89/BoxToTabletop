@@ -83,7 +83,6 @@ module Types =
 
         member this.Encode() = Unit.Encoder(this)
 
-
         static member EncodeList (units: Unit list) =
             Encode.list (units |> List.map (fun u -> u.Encode()))
 
@@ -91,6 +90,7 @@ module Types =
         UnitId : Guid
         UnitPriority : int
     } with
+        static member Create id p = { UnitId = id; UnitPriority = p }
         static member Decoder : Decoder<UnitPriority> =
             Decode.object
                 (fun get ->
@@ -101,17 +101,13 @@ module Types =
                 )
 
         member this.Encode() =
-            let e = Encode.object [
+            Encode.object [
                 "unitid", Encode.guid this.UnitId
                 "unitpriority", Encode.int this.UnitPriority
             ]
-            printfn "Encoded object is %s" (e.ToString())
-            e
 
         static member EncodeList (ups : UnitPriority list) =
-            let v = Encode.list (ups |> List.map (fun x -> x.Encode()))
-            printfn "encoded unit list is \"%s\"" (v.ToString())
-            v
+            Encode.list (ups |> List.map (fun x -> x.Encode()))
 
         static member DecodeList : Decoder<UnitPriority list> =
             Decode.list UnitPriority.Decoder

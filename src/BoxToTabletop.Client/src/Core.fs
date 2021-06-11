@@ -246,12 +246,13 @@ module Promises =
         return! Fetch.delete(url, headers = headers)
     }
 
-    let updateUnitPriorities (config : Config.T) (projId : Guid) (updates : UnitPriority list) : Promise<Result<UnitPriority list, FetchError>> = promise {
+    let updateUnitPriorities (config : Config.T) (projId : Guid) (updates : UnitPriority list) : Promise<Result<int, FetchError>> = promise {
         let url = ProjectRoutes.Priorities.PUT() |> buildRoute config <| projId
         let headers = [
             HttpRequestHeaders.Authorization (getBearer config)
         ]
-        let decoder = Types.UnitPriority.DecodeList
+        //let decoder = Types.UnitPriority.DecodeList 
+        let decoder = Decode.int
         let payload = UnitPriority.EncodeList updates
         return! Fetch.tryPut(url, payload, decoder = decoder, headers = headers)
     }

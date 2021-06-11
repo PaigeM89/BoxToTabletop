@@ -96,23 +96,12 @@ module ProjectSettings =
         let checkBoxFor cbName isChecked  oc =
             Panel.Block.div [] [
                 Switch.switch [
-                    Switch.IsRtl
                     Switch.Checked isChecked
                     Switch.OnChange oc
                     Switch.Id (cbName + "-checkbox")
                     Switch.Color Color.IsInfo
                 ] [ str cbName ]
             ]
-            // Panel.checkbox [] [
-            //     input [
-            //         Class "toggle"
-            //         Id cbName
-            //         Type "checkbox"
-            //         Checked isChecked
-            //         OnChange oc
-            //     ]
-            //     label [ HtmlFor cbName ] [ str cbName ]
-            // ]
 
         let createCheckboxes (projOpt : Project option) dispatch =
             match projOpt with

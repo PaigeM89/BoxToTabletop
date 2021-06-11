@@ -131,7 +131,6 @@ module Routing =
                 return! ServerErrors.INTERNAL_ERROR "Error saving unit" next ctx
         }
 
-        // todo: make batch save endpoint
         let updateUnit (unitId: Guid) (next : HttpFunc) (ctx : HttpContext) = task {
             let userId = getUserId ctx |> Option.defaultValue "Unknown user"
             
@@ -362,9 +361,12 @@ module Routing =
                     let msg = $"Updated {rowsAffected} items when given {expected} items to update"
                     return! ServerErrors.INTERNAL_ERROR msg next ctx
                 else
-                    let encoded = Domain.Types.UnitPriority.EncodeList decoded
-                    !! "Successfully updated priorties, returning {x}" >>!+ ("x", encoded) |> logger.info
-                    return! Successful.OK encoded next ctx
+                    // if/when we determine what is needed by the UI, return something
+                    // until then, return the number of rows affected
+                    //let encoded = Domain.Types.UnitPriority.EncodeList decoded
+                    //!! "Successfully updated priorties, returning {x}" >>!+ ("x", encoded) |> logger.info
+                    !! "Successfully updated priorities" |> logger.info
+                    return! Successful.OK rowsAffected next ctx
         }
 
     let parsingErrorHandler (err : string) next ctx =
@@ -388,6 +390,7 @@ module Routing =
                 GET >=> routeCi Routes.UnitRoutes.Root >=> Units.listUnits
                 POST >=> routeCi (Routes.UnitRoutes.Root) >=> (Units.saveUnit)
                 PUT >=> routeCif (Routes.UnitRoutes.PUT()) (fun unitId -> Units.updateUnit unitId)
+                PUT >=> routeCi (Routes.UnitRoutes.PUTCollection) >=> Units.updateMany
                 DELETE >=> routeCif (Routes.UnitRoutes.DELETE()) (fun unitId -> Units.deleteUnit unitId)
                 GET >=> routeCi Routes.ProjectRoutes.GETALL >=> Projects.listAllProjects 
                 POST >=> routeCi Routes.ProjectRoutes.POST >=> Projects.saveProject

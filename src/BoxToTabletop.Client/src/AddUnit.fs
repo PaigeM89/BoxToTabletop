@@ -107,7 +107,7 @@ module AddUnit =
                 Input.ValueOrDefault (string dv)
                 Input.OnChange action
                 Input.Props [ HTMLAttr.Min 0; HTMLAttr.FrameBorder "1px solid";  ]
-                Input.CustomClass "numeric-input-width"
+                // Input.CustomClass "numeric-input-width"
             ]
 
         let unitNameInput inputColor partial dispatch =

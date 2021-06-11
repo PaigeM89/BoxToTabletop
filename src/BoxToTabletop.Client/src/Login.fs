@@ -8,29 +8,6 @@ module Login =
   open Elmish
   open Fable.Core.JS
 
-  // type [<AllowNullLiteral>] User() =
-  //   member val name : string option = None with get, set
-  //   member val given_name: string option = None with get, set
-  //   member val family_name: string option = None with get, set
-  //   member val middle_name: string option = None with get, set
-  //   member val nickname: string option = None with get, set
-  //   member val preferred_username: string option = None with get, set
-  //   member val profile: string option = None with get, set
-  //   member val picture: string option = None with get, set
-  //   member val website: string option = None with get, set
-  //   member val email: string option = None with get, set
-  //   member val email_verified: bool option = None with get, set
-  //   member val gender: string option = None with get, set
-  //   member val birthdate: string option = None with get, set
-  //   member val zoneinfo: string option = None with get, set
-  //   member val locale: string option = None with get, set
-  //   member val phone_number: string option = None with get, set
-  //   member val phone_number_verified: bool option = None with get, set
-  //   member val address: string option = None with get, set
-  //   member val updated_at: string option = None with get, set
-  //   member val sub: string option = None with get, set
-  //   member val user_id : string option = None with get, set
-
   type UserRecord = {
     /// The full name
     Name : string option

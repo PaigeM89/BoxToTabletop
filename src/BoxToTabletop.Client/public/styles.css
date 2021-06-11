@@ -3,15 +3,16 @@
 }
 
 .numeric-input-width {
-    width: 100%;
+    width: 75%;
 }
 
 .list-units-table {
     column-span: all;
+    width: min-content;
 }
 
-.add-unit-box {
-    padding: 10px 10px 20px !important;
+.table-unit-name {
+    width: min-content;
 }
 
 .add-unit-button-box {
@@ -50,4 +51,16 @@
 
 .pad-left-10 {
     padding-left: 10px;
+}
+
+/* Chrome, Safari, Edge, Opera */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Firefox */
+input[type=number] {
+  -moz-appearance: textfield;
 }

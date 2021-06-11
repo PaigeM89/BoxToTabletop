@@ -33,7 +33,7 @@ module UnitsList =
   | ErrorMessage of msg : string
 
   type UnitChange = Types.Unit
-  type PrioritiesChange = (int * Guid) list
+  type PrioritiesChange = UnitPriority list
 
   type ProjectChangeStatus = 
   | Unloading of newProject : Project
@@ -51,7 +51,6 @@ module UnitsList =
 
     Debouncer : Debouncer.State
     ProjectChangeStatus : ProjectChangeStatus
-    //PendingChanges : PendingChange list
   } with
     static member Init(config : Config.T, dndModel : DragAndDropModel) = {
       DragAndDrop = dndModel
@@ -78,14 +77,13 @@ module UnitsList =
       items
       |> List.mapi (fun index item ->
         match Map.tryFind item model.UnitMap with
-        | Some x -> Some (index, x.Id)
+        | Some x -> UnitPriority.Create x.Id index |> Some
         | None -> None
       )
       |> List.choose id
     { model with PriorityChanges = priorities }
 
   let setUnitChange (unit : UnitChange) model =
-    printfn "adding unit change: %A" unit
     let changesMap = model.UnitChanges |> Map.add unit.Id  unit
     { model with UnitChanges = changesMap } |> replaceUnit unit
 
@@ -121,7 +119,16 @@ module UnitsList =
   | TransferUnitFailure of exn
   | UpdateUnitSuccess of response : Result<Unit, Thoth.Fetch.FetchError>
   | UpdateUnitFailure of exn
+  | UpdatePrioritiesSuccess of response: Result<int, Thoth.Fetch.FetchError>
+  | UpdatePrioritiesFailure of exn
   | NoUnitsToUpdate
+
+  /// Saving changes has to be done in a specific order, so these messages are invoked one after another
+  /// If the user is changing projects, the next project Id is passed along these messages; if this is aregular save,
+  /// these values are None.
+  type SaveChangesMsg =
+  | SaveUnitChanges of nextProjectId : Guid option
+  | SaveUnitPriorities of nextProjectId : Guid option
 
   /// the main Messages for this component
   type Msg =
@@ -130,8 +137,10 @@ module UnitsList =
   | ApiCallStart of msg : ApiCallStartMsg
   | ApiCallResponse of msg : ApiCallsResponseMsg
   | AddUnitChange of change : UnitChange
+  | ScrapePriorities
   | DebouncerSelfMsg of Debouncer.SelfMessage<Msg>
   | DispatchChanges
+  | Saving of SaveChangesMsg
   | UnloadCompleted
 
   let createAddUnitMsg unit = AddNewUnit unit |> External
@@ -151,14 +160,13 @@ module UnitsList =
             Input.ValueOrDefault (string dv)
             Input.OnChange action
             Input.Props [ HTMLAttr.Min 0; HTMLAttr.FrameBorder "1px solid";  ]
-            Input.CustomClass "numeric-input-width"
+            // Input.CustomClass "numeric-input-width"
         ]
 
     let drawRow model dispatch index (unit : Types.Unit) =
       let cs = model.ColumnSettings
       let changeHandler transform (ev : Browser.Types.Event) =
           let x = Parsing.parseIntOrZero ev.Value
-          printfn "updating unit %A with a value %A" unit.Name x
           let unit = transform unit x
           unit |> AddUnitChange |> dispatch
 
@@ -204,7 +212,7 @@ module UnitsList =
             ]
           td [] [
               //todo: shrink this a little
-              Input.input [ Input.ValueOrDefault unit.Name; Input.OnChange nameChangeHandler ]
+              Input.input [ Input.ValueOrDefault unit.Name; Input.OnChange nameChangeHandler; Input.CustomClass "table-unit-name" ]
           ]
           td [] [
                 numericInput (Input.Color NoColor) (unit.Id.ToString() + "-models") unit.Models modelCountFunc
@@ -224,23 +232,6 @@ module UnitsList =
       |> ElementGenerator.setTag tr
       |> Draggable.draggable model.DragAndDrop dndConfig (fun m -> DndMsg(m, Some unit.Id) |> dispatch)
 
-    let mapSaveError (model : Model) dispatch =
-        let structure color header message =
-            Message.message [ Message.Color color ] [
-                Message.header [] [
-                    str header
-                    Delete.delete [ Delete.OnClick (fun _ -> () ) ] [] //dispatch RemoveErrorMessage) ] [ ]
-                ]
-                Message.body [] [
-                    str message
-                ]
-            ]
-        match model.ErrorMessage with
-        | Some (InfoMessage msg) ->
-            structure IsInfo "" msg |> Some
-        | Some (ErrorMessage msg) ->
-            structure IsDanger "Error" msg |> Some
-        | None -> None
 
     let view model dispatch =
       //let saveError = mapSaveError model dispatch
@@ -276,7 +267,6 @@ module UnitsList =
         |> Table.table [ Table.IsBordered; Table.IsStriped; Table.IsNarrow; Table.IsHoverable; Table.CustomClass "list-units-table" ]
       div [] [
         Section.section [ Section.CustomClass "no-padding-section" ] [
-                //if Option.isSome saveError then Option.get saveError
                 hr []
                 section [
                 ] [
@@ -322,6 +312,11 @@ module UnitsList =
       else
         printfn "no unit changes to dispatch, returning empty command"
         Cmd.ofMsg NoUnitsToUpdate
+
+    let updatePriorities (model : Model) =
+      let promise () = Promises.updateUnitPriorities model.Config model.ProjectId model.PriorityChanges
+      let cmd = Cmd.OfPromise.either promise () UpdatePrioritiesSuccess UpdatePrioritiesFailure
+      model, cmd
 
 
 
@@ -390,6 +385,15 @@ module UnitsList =
     | UpdateUnitFailure e ->
       printfn "Error updating unit: %A" e
       model, Cmd.none, None
+    | UpdatePrioritiesSuccess(Ok priorities) ->
+      { model with PriorityChanges = []}, Cmd.none, None
+    | UpdatePrioritiesSuccess (Error e) ->
+      printfn "Thoth error updating unit priorities: %A" e
+      let raised = LiftErrorMessage ("Error Saving unit", "There was an error updating unit ordering.", None)
+      model, Cmd.none, Some(raised)
+    | UpdatePrioritiesFailure e->
+      printfn "Error updating unit priorities: %A" e
+      model, Cmd.none, None
     | NoUnitsToUpdate ->
       match model.ProjectChangeStatus with
       | NoPendingChange -> model, Cmd.none, None
@@ -418,6 +422,17 @@ module UnitsList =
       let cmd = TransferUnit (unitId, projectId) |> ApiCallStart |> Cmd.ofMsg
       UpdateResponse.basic model cmd
 
+  let handleSavingMsg (model : Model) msg =
+    match msg with
+    | SaveUnitChanges (nextProjectId) ->
+      let cmd = ApiCalls.updateUnits model |> Cmd.map ApiCallResponse
+      let spinner = Core.SpinnerStart spinnerId
+      UpdateResponse.withSpin model cmd spinner
+    | SaveUnitPriorities (nextProjectId) ->
+      let model, cmd = ApiCalls.updatePriorities model
+      let spinner = Core.SpinnerStart spinnerId
+      UpdateResponse.withSpin model (cmd |> Cmd.map ApiCallResponse) spinner
+
   let update (model : Model) msg =
     match msg with
     | DebouncerSelfMsg debouncerMsg ->
@@ -428,8 +443,10 @@ module UnitsList =
       let dnd, cmd = dragAndDropUpdate DragEnd model.DragAndDrop
       let raised = DndEnd
       let dndCmd = Cmd.map (fun m -> DndMsg(m, unitIdOpt)) cmd
+      let prioritiesCmd = ScrapePriorities |> Cmd.ofMsg
+      let cmd = [ dndCmd; prioritiesCmd ] |> Cmd.batch 
       let mdl = { model with DragAndDrop = dnd } |> updatePriorities
-      UpdateResponse.withRaised mdl dndCmd raised
+      UpdateResponse.withRaised mdl cmd raised
     | DndMsg (dndMsg, Some unitId) ->
       let dnd, cmd = dragAndDropUpdate dndMsg model.DragAndDrop 
       let raised = DndStart (dnd, unitId)
@@ -451,17 +468,26 @@ module UnitsList =
     | AddUnitChange unit ->
       let (debouncerModel, debouncerCmd) =
         model.Debouncer
-        |> Debouncer.bounce (TimeSpan.FromSeconds 30.) "unit_changes" DispatchChanges
+        |> Debouncer.bounce (TimeSpan.FromSeconds 5.) "unit_changes" DispatchChanges
       
       let mdl = setUnitChange unit model
       let mdl = { mdl with Debouncer = debouncerModel }
 
       UpdateResponse.basic mdl (Cmd.map DebouncerSelfMsg debouncerCmd)
+    | ScrapePriorities ->
+      printfn "scraping unit priorities"
+      let (debouncerModel, debouncerCmd) =
+        model.Debouncer
+        |> Debouncer.bounce (TimeSpan.FromSeconds 20.) "unit_changes" DispatchChanges
+      let mdl = { model with Debouncer = debouncerModel}
+      UpdateResponse.basic mdl (Cmd.map DebouncerSelfMsg debouncerCmd)
     | DispatchChanges ->
-      printfn "Dispatching changes" //, model change status is %A" model.ProjectChangeStatus
+      printfn "Dispatching changes"
       let spin = Core.SpinnerStart spinnerId
-      let cmd = ApiCalls.updateUnits model |> Cmd.map ApiCallResponse
-      
+      // let cmd = ApiCalls.updateUnits model |> Cmd.map ApiCallResponse
+      let cmd1 = SaveChangesMsg.SaveUnitChanges None |> Saving |> Cmd.ofMsg
+      let cmd2 = SaveChangesMsg.SaveUnitPriorities None |> Saving |> Cmd.ofMsg
+      let cmd = [ cmd1; cmd2 ] |> Cmd.batch 
       UpdateResponse.withSpin model cmd spin
     | UnloadCompleted ->
       match model.ProjectChangeStatus with
@@ -471,4 +497,5 @@ module UnitsList =
         let cmd = ApiCallStartMsg.LoadUnitsForProject |> ApiCallStart |> Cmd.ofMsg
         let spin = Core.SpinnerStart spinnerId
         UpdateResponse.withSpin model cmd spin
+    | Saving saveMsg -> handleSavingMsg model saveMsg
 

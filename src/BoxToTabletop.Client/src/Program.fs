@@ -19,6 +19,9 @@ open Thoth.Elmish
 open BoxToTabletop.Client
 open Elmish.React
 
+// This gives weird sass errors for some reason (webpack using sass to load it?)
+// Fable.Core.JsInterop.importAll "../node_modules/bulma-switch/dist/css/bulma-switch.min.css"
+
 type SpinnerState = {
     Spin : bool
     Sources : Guid list
@@ -198,15 +201,6 @@ module View =
                     ] [
                         Fa.i [ Fa.Solid.AngleDoubleLeft; Fa.Size Fa.Fa3x;  ] [ ]
                     ]
-                ]
-                Level.right [] [
-                    Switch.switchInline [
-                        Switch.IsRounded
-                        Switch.Checked true
-                        Switch.Id "a-unique-checkbox-name"
-                        Switch.Color Color.IsInfo
-                        Switch.OnChange (fun _ -> printfn "on change for a-unique-checkbox-name")
-                    ] [ str "test swtich" ]
                 ]
                 ProjectsList.View.view model.ProjectsListModel (fun (x : ProjectsList.Msg) -> ProjectsListMsg x |> dispatch)
                 projectSettingsView model
@@ -395,10 +389,10 @@ let handleDndMsg (msg : DragAndDropMsg) (model : Model) =
 open Fable.FontAwesome
 
 let update (msg : Msg) (model : Model) =
-    let maybeAddSpin cmd =
-        //if model.SpinnerState.Spin then
-        let tcmd = Cmd.ofMsg RaiseToast
-        [ cmd; tcmd ] |> Cmd.batch
+    let maybeAddSpin cmd = cmd
+        // if model.SpinnerState.Spin then
+        //     let tcmd = Cmd.ofMsg RaiseToast
+        //     [ cmd; tcmd ] |> Cmd.batch
         // else
         //     cmd
 
