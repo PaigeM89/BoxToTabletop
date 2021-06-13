@@ -9,13 +9,6 @@ module DatabaseInitialization =
     open Npgsql
     open Npgsql.FSharp
 
-    let devDockerConnectionString() =
-        Sql.host "localhost"
-        |> Sql.database "boxtotabletop"
-        |> Sql.username "postgres"
-        |> Sql.password "postgres"
-        |> Sql.port 5432
-
     let createDbConnection (bldr : NpgsqlConnectionStringBuilder) =
         Sql.connect (bldr.ConnectionString)
         |> Sql.createConnection
@@ -104,10 +97,9 @@ module Main =
         let logger = LogProvider.getLoggerByFunc()
         match tryParseAuth0Config results with
         | Ok auth0Config ->
-            let postgresHost = results.GetResult (PostgresHost, defaultValue = "localhost")
-            let postgresConf = { PostgresConfig.Default() with PostgresHost = postgresHost} 
+            let postgresConf = PostgresConfig.Default()
             let config = ApplicationConfig.Create postgresConf auth0Config
-            !! "Config is {config}" >>!+ ("config", config) |> logger.info
+            !! "Config is {config}" >>!+ ("config", config.Printable()) |> logger.info
             let connstr = config.PostgresConfig.PostgresConnectionString()
             MigrationRunner.run connstr
 

@@ -14,6 +14,18 @@ module Configuration =
         |> Option.map (fun attr -> attr.Product)
         |> Option.defaultValue "unknown"
 
+    let getEnv varname = System.Environment.GetEnvironmentVariable varname
+    let getEnvOr defaultValue varname =
+        try
+            getEnv varname
+        with
+        | _ -> defaultValue
+
+    let getEnvOrFunc func varname =
+        try
+            getEnv varname
+        with
+        | _ -> func()
 
     type PostgresConfig = {
         PostgresHost : string
@@ -23,10 +35,10 @@ module Configuration =
         PostgresMaxPoolSize : int
     }   with
         static member Default () = {
-                PostgresHost = "localhost"
-                PostgresDatabase = "boxtotabletop"
-                PostgresUsername = "postgres"
-                PostgresPassword = "postgres"
+                PostgresHost = getEnvOr "localhost" "PG_HOST"
+                PostgresDatabase = getEnvOr "boxtotabletop" "PG_DB"
+                PostgresUsername = getEnvOr "postgres" "POSTGRES_USER"
+                PostgresPassword = getEnvOr "postgres" "POSTGRES_PASSWORD"
                 PostgresMaxPoolSize = 300
             }
         member x.PostgresConnectionStringSetTimeOut (timeout: TimeSpan) =
@@ -44,7 +56,7 @@ module Configuration =
         member x.PostgresConnectionString () =
             TimeSpan.FromSeconds 60. |> x.PostgresConnectionStringSetTimeOut
 
-        member x.Printable = { x with PostgresPassword = "<password>" }
+        member x.Printable() = { x with PostgresPassword = "<password>"; PostgresUsername = "<username>" }
 
     type Auth0Config = {
         /// The issuer, the URL given by Auth0 for the application
@@ -70,6 +82,8 @@ module Configuration =
         }
 
         static member Create postgresConf auth0Conf = { PostgresConfig = postgresConf; Auth0Config = auth0Conf }
+
+        member this.Printable() = { this with PostgresConfig = this.PostgresConfig.Printable() }
 
 
     type CLIArguments =
@@ -100,9 +114,9 @@ module Configuration =
         parser.PrintUsage()
 
     let tryParseAuth0Config (results : ParseResults<CLIArguments>) =
-        let domain = results.GetResult(AuthDomain, defaultValue = "")
-        let audience = results.GetResult(AuthAudience, defaultValue = "")
-        let clientId = results.GetResult(AuthClientId, defaultValue = "")
+        let domain = getEnvOrFunc (fun () -> results.GetResult(AuthDomain, defaultValue = "")) "AUTH0_DOMAIN"
+        let audience = getEnvOrFunc (fun () -> results.GetResult(AuthAudience, defaultValue = "")) "AUTH0_AUDIENCE"
+        let clientId = getEnvOrFunc (fun () -> results.GetResult(AuthClientId, defaultValue = "")) "AUTH0_CLIENTID"
         if domain = "" then
             Error "Missing domain"
         elif audience = "" then

@@ -385,7 +385,7 @@ module Routing =
 
     let webApp() =
         choose [
-            authenticated >=> choose [
+            routeStartsWithCi Routes.Root >=> authenticated >=> choose [
                 POST >=> routeCif (Routes.UnitRoutes.Transfer.POST()) (fun unitId -> Units.transferUnit unitId)
                 GET >=> routeCi Routes.UnitRoutes.Root >=> Units.listUnits
                 POST >=> routeCi (Routes.UnitRoutes.Root) >=> (Units.saveUnit)
