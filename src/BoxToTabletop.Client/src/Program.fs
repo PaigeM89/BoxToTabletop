@@ -74,10 +74,10 @@ type Model = {
         let dnd = DragAndDropModel.Empty()
         {
             this with
-                AddUnitModel = AddUnit.Model.Init(this.Config)
-                UnitsListModel = UnitsList.Model.Init(this.Config, dnd)
-                ProjectSettingsModel = ProjectSettings.Model.Init(this.Config)
-                ProjectsListModel = ProjectsList.Model.Init(this.Config, dnd)
+                AddUnitModel = this.AddUnitModel.SetConfig(this.Config)
+                UnitsListModel = this.UnitsListModel.SetConfig(this.Config)
+                ProjectSettingsModel = this.ProjectSettingsModel.SetConfig(this.Config)
+                ProjectsListModel = this.ProjectsListModel.SetConfig(this.Config)
         }
 
 let addErrorMessage messageId message model =
@@ -109,6 +109,7 @@ type Msg =
 | ExpandProjectNav
 | CollapseProjectNav
 | RemoveErrorMessage of messageId : Guid
+| ToggleDarkMode of mode : bool
 | RaiseToast // raises a toast based on the state of the model
 
 module View =
@@ -133,7 +134,8 @@ module View =
 
     let navbar (model : Model) dispatch =
         let spinner = mapShowSpinner model
-        Navbar.navbar [ Navbar.Color IsPrimary ] [
+        let color = Color.IsPrimary // if model.Config.IsDarkMode then Color.IsPrimary else Color.IsPrimary
+        Navbar.navbar [ Navbar.Color color ] [
             Navbar.Start.div [ ] [
                 Level.level [] [
                     Level.item [ Level.Item.HasTextCentered ] [
@@ -153,6 +155,16 @@ module View =
             ]
             Navbar.End.div [] [
                 if Option.isSome spinner then Navbar.Item.div [] [ Option.get spinner ]
+                Navbar.Item.div [] [
+                    Switch.switch [
+                        Switch.Checked model.Config.IsDarkMode
+                        Switch.OnChange (fun ev -> ToggleDarkMode (ev.Checked) |> dispatch)
+                        Switch.Id "toggle-dark-mode"
+                        Switch.Color Color.IsInfo
+                    ] [
+                        Fa.i [ Fa.Solid.Moon] []
+                    ]
+                ]
                 if model.LoginModel.User.IsSome then
                     Navbar.Item.div [] [
                         Button.button
@@ -437,7 +449,7 @@ let update (msg : Msg) (model : Model) =
         { model with ErrorMessages = m }, Cmd.none
     | RaiseToast ->
         let cmd = Cmd.none
-            // todo: recreate & fix this upstream
+        // todo: recreate & fix this upstream
         // if model.SpinnerState.Spin then
         //     let bldr =
         //         Toast.message "Loading..."
@@ -450,6 +462,13 @@ let update (msg : Msg) (model : Model) =
         //     model, toastCmd
         // else model, Cmd.none
         model, cmd
+    | ToggleDarkMode(mode) ->
+        let config = Config.withDarkModeFlag mode model.Config
+        let mdl = { model with Config = config }
+        let mdl = mdl.RepopulateConfig()
+        let themeValue = if mode then "dark" else "light"
+        Browser.Dom.document.documentElement.setAttribute("data-theme",themeValue)
+        mdl, Cmd.none
 
 
 

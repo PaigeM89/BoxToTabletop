@@ -52,14 +52,18 @@ module Config =
     type T = {
         ServerUrl : string
         JwtToken : string option
+        IsDarkMode : bool
     } with
         static member Default() = {
             ServerUrl =  "http://localhost:5000"
             JwtToken = None
+            IsDarkMode = false
         }
 
     let withServerUrl (serverUrl : string) (t : T) =
         { t with ServerUrl = serverUrl }
+
+    let withDarkModeFlag b (t : T) = { t with IsDarkMode = b }
 
 module Promises =
     open Fetch

@@ -34,6 +34,8 @@ type Model = {
         NewProjectName = ""
     }
 
+    member this.SetConfig config = { this with Config = config }
+
 /// Messages that are raised externally and handled here.
 type ExternalSourceMsg =
 | DndModelChange of DragAndDropModel
@@ -80,11 +82,11 @@ module View =
             match model.HoveredProject with
             | None -> false
             | Some x -> x = input
-        let menuItem label proj isSelected =
+        let menuItem label (proj : Project) isSelected =
             Menu.Item.li
                 [
                     Menu.Item.IsActive isSelected
-                    Menu.Item.OnClick (fun _ -> Selected proj |> dispatch )
+                    Menu.Item.OnClick (fun _ -> printfn "in project list project on click for project %A" proj.Id; Selected proj |> dispatch )
                 ] [
                     ElementGenerator.Create (sprintf "%A-dnd" proj.Id) [] [] [str label]
                     |> DropArea.asBucket model.DragAndDrop dragAndDropConfig (fun _ _ -> ()) (onDrop proj.Id dispatch) (DragAndDropMsg >> External >> dispatch)
@@ -115,10 +117,10 @@ module View =
                         ] [
                             Input.input [ 
                                 Input.Option.Placeholder "New Project"; 
-                                Input.OnChange (fun ev -> ev.Value |> NewProjectNameUpdate |> dispatch); 
+                                Input.OnChange (fun ev -> printfn "project name input on change: %A" ev.Value; ev.Value |> NewProjectNameUpdate |> dispatch); 
                                 Input.Props [ Props.OnKeyPress(fun k -> detectEnterKey k dispatch) ] ]
                             Button.button [
-                                Button.OnClick (fun _ -> CreateNewProject |> dispatch )
+                                Button.OnClick (fun _ -> printfn "create new project button on click"; CreateNewProject |> dispatch )
                             ] [ Fa.i [ Fa.Solid.Plus ] []  ]
                         ]
                     ]

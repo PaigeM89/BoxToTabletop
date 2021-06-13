@@ -55,6 +55,8 @@ module AddUnit =
             Config = config
         }
 
+        member this.SetConfig config = { this with Config = config }
+
     module Model =
         let toggleShowErrors value model =
             { model with PartialData = { model.PartialData with ShowError = value } }
