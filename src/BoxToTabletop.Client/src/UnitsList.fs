@@ -94,7 +94,6 @@ module UnitsList =
   | ClearErrorMessage of messageId : Guid
   | LiftErrorMessage of title : string * msg : string * messageId : Guid option
 
-
   /// These messages are raised externally and handled here
   type ExternalSourceMsg =
   | ProjectChange of proj : Project
@@ -108,12 +107,12 @@ module UnitsList =
   | DeleteUnit of unitId : Guid
   | UpdateUnit of unit : Unit
   | TransferUnit of unitId : Guid * newProjectId : Guid
-  // | BeginProjectChange of newProject : Project
 
   /// Messages that handle API call responses or errors
   type ApiCallsResponseMsg =
   | LoadUnitsResponse of response : Result<Unit list, string>
   | LoadUnitsFailure of exn
+  | DeleteUnitSuccess
   | DeleteUnitFailure of exn
   | TransferUnitResponse of response: Result<Guid, int>
   | TransferUnitFailure of exn
@@ -291,7 +290,7 @@ module UnitsList =
 
     let deleteUnit model unitId =
       let promise = Promises.deleteUnit model.Config model.ProjectId
-      let cmd = Cmd.OfPromise.attempt promise unitId DeleteUnitFailure
+      let cmd = Cmd.OfPromise.either promise unitId (fun _ -> DeleteUnitSuccess) DeleteUnitFailure
       let dnd = DragAndDropModel.removeItem (string unitId) model.DragAndDrop
       { model with DragAndDrop = dnd }, cmd
 
@@ -310,7 +309,6 @@ module UnitsList =
       if List.length commands > 0 then
         commands |> Cmd.batch
       else
-        // printfn "no unit changes to dispatch, returning empty command"
         Cmd.ofMsg NoUnitsToUpdate
 
     let updatePriorities (model : Model) =
@@ -338,7 +336,6 @@ module UnitsList =
   let handleApiCallResponseMsg (model : Model) msg =
     match msg with
     | LoadUnitsResponse (Ok units) ->
-      // printfn "loaded %i units" (List.length units)
       let m = units |> List.map (fun x -> (string x.Id), x)
       let dnd = m |> List.map (fst) |> DragAndDropModel.createWithItems
       let model = { model with DragAndDrop = dnd; UnitMap = (Map.ofList m); ProjectChangeStatus = NoPendingChange }
@@ -351,6 +348,8 @@ module UnitsList =
       printfn "Load units error: %A" e
       let errMsg = LiftErrorMessage ("Error loading units", "There was an error loading units for the selected project. Try re-selecting the project.", None)
       model, Cmd.none, Some errMsg
+    /// need to handle the success case so that we can disable the spinner
+    | DeleteUnitSuccess -> model, Cmd.none, None
     | DeleteUnitFailure e ->
       printfn "Delete unit error: %A" e
       let errMsg = LiftErrorMessage ("Error deleting unit", "There was an error deleting the unit. Try reloading the project and, if the unit is listed, deleting it again.", None)
@@ -372,12 +371,15 @@ module UnitsList =
       let changeMap = model.UnitChanges |> Map.remove unit.Id
       let model = { model with UnitMap = unitMap; UnitChanges = changeMap }
       match model.ProjectChangeStatus with
-      | NoPendingChange -> model, Cmd.none, None
-      | Unloading proj ->
+      | NoPendingChange ->
         if model.UnitChanges = Map.empty then
-          {model with ProjectChangeStatus = NoPendingChange; ProjectId = proj.Id }, Cmd.ofMsg (LoadUnitsForProject |> ApiCallStart), None
+          // if we've finished all the changes, then update the unit priorities
+          let mdl, cmd = ApiCalls.updatePriorities model
+          mdl, cmd |> Cmd.map ApiCallResponse, None
         else
           model, Cmd.none, None
+      | Unloading proj ->
+        model, Cmd.none, None
     | UpdateUnitSuccess( Error fetchError ) ->
       printfn "Fetch error when updating unit: %A" fetchError
       let raised = LiftErrorMessage ("Error Saving unit", "There was an error saving one or more units.", None)
@@ -386,7 +388,10 @@ module UnitsList =
       printfn "Error updating unit: %A" e
       model, Cmd.none, None
     | UpdatePrioritiesSuccess(Ok priorities) ->
-      { model with PriorityChanges = []}, Cmd.none, None
+      match model.ProjectChangeStatus with
+      | NoPendingChange -> { model with PriorityChanges = [] }, Cmd.none, None
+      | Unloading proj ->
+        {model with ProjectChangeStatus = NoPendingChange; ProjectId = proj.Id; PriorityChanges = [] }, Cmd.ofMsg (LoadUnitsForProject |> ApiCallStart), None
     | UpdatePrioritiesSuccess (Error e) ->
       printfn "Thoth error updating unit priorities: %A" e
       let raised = LiftErrorMessage ("Error Saving unit", "There was an error updating unit ordering.", None)
@@ -475,19 +480,14 @@ module UnitsList =
 
       UpdateResponse.basic mdl (Cmd.map DebouncerSelfMsg debouncerCmd)
     | ScrapePriorities ->
-      // printfn "scraping unit priorities"
       let (debouncerModel, debouncerCmd) =
         model.Debouncer
         |> Debouncer.bounce (TimeSpan.FromSeconds 20.) "unit_changes" DispatchChanges
       let mdl = { model with Debouncer = debouncerModel}
       UpdateResponse.basic mdl (Cmd.map DebouncerSelfMsg debouncerCmd)
     | DispatchChanges ->
-      // printfn "Dispatching changes"
       let spin = Core.SpinnerStart spinnerId
-      // let cmd = ApiCalls.updateUnits model |> Cmd.map ApiCallResponse
-      let cmd1 = SaveChangesMsg.SaveUnitChanges None |> Saving |> Cmd.ofMsg
-      let cmd2 = SaveChangesMsg.SaveUnitPriorities None |> Saving |> Cmd.ofMsg
-      let cmd = [ cmd1; cmd2 ] |> Cmd.batch 
+      let cmd = SaveChangesMsg.SaveUnitChanges None |> Saving |> Cmd.ofMsg
       UpdateResponse.withSpin model cmd spin
     | UnloadCompleted ->
       match model.ProjectChangeStatus with
