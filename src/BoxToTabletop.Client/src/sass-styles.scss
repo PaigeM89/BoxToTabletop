@@ -1,6 +1,9 @@
 @charset "utf-8";
 
-$purple: #5e254b;
-$primary: $purple;
+$purple-dark: #5e254b;
+$purple: #a0357c;
+//$scheme-main: $purple;
+// $scheme-invert: $purple-dark;
+
 
 @import "~bulma/bulma";

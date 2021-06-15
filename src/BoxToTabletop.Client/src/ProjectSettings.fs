@@ -126,7 +126,7 @@ module ProjectSettings =
             if model.Project.IsNone then
                 div [] []
             else
-                Panel.panel [] [
+                Panel.panel [ Panel.Color Color.IsPrimary ] [
                     if model.DeleteInitiated then deleteProjectModal dispatch
                     Panel.heading [] [ str "Project Settings" ]
                     Panel.Block.div [] [

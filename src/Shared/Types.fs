@@ -11,6 +11,28 @@ open Thoth.Json.Net
 
 module Types =
 
+    type FeatureFlags = {
+        DarkMode : bool
+        Crusade : bool
+    } with
+        static member Empty() = {
+            DarkMode = false
+            Crusade = false
+        }
+
+        static member Decoder() : Decoder<FeatureFlags> =
+            Decode.object(fun get ->
+                {
+                    DarkMode = get.Required.Field "darkmode" Decode.bool
+                    Crusade = get.Required.Field "crusade" Decode.bool
+                })
+
+        member this.Encode() =
+            Encode.object [
+                "darkmode", Encode.bool this.DarkMode
+                "crusade", Encode.bool this.Crusade
+            ]
+
     type Auth0ConfigJson = {
         Domain : string
         ClientId : string

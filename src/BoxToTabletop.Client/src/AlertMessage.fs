@@ -44,51 +44,59 @@ module AlertMessage =
             ]
         ]
 
-// module Toast =
-//     open Thoth.Elmish
-//     open Fable.FontAwesome
-//     open Fulma
+module Toast =
+    open Thoth.Elmish
+    open Fable.FontAwesome
+    open Fulma
 
-//     let renderToastWithFulma =
-//         { new Toast.IRenderer<Fa.IconOption> with
-//             member __.Toast children color =
-//                 Notification.notification [ Notification.CustomClass color ]
-//                     children
+    let renderToastWithFulma =
+        { new Toast.IRenderer<Fa.IconOption list> with
+            member __.Toast children color =
+                Notification.notification [ Notification.CustomClass color ]
+                    children
 
-//             member __.CloseButton onClick =
-//                 Notification.delete [ Props [ OnClick onClick ] ]
-//                     [ ]
+            member __.CloseButton onClick =
+                Notification.delete [ Props [ OnClick onClick ] ]
+                    [ ]
 
-//             member __.Title txt =
-//                 Heading.h5 []
-//                            [ str txt ]
+            member __.Title txt =
+                Heading.h5 []
+                           [ str txt ]
 
-//             member __.Icon (icon : Fa.IconOption) =
-//                 Icon.icon [ Icon.Size IsMedium ]
-//                     [ Fa.i [ icon
-//                              Fa.Size Fa.Fa2x ]
-//                         [ ] ]
+            member __.Icon (iconSettings : Fa.IconOption list) =
+                let icon = iconSettings @ [ Fa.Size Fa.Fa2x ]
+                Icon.icon [ Icon.Size IsMedium ] [
+                    Fa.i icon [ ] 
+                ]
 
-//             member __.SingleLayout title message =
-//                 div [ ]
-//                     [ title; message ]
+            member __.SingleLayout title message =
+                div [ ]
+                    [ title; message ]
 
-//             member __.Message txt =
-//                 span [ ]
-//                      [ str txt ]
+            member __.Message txt =
+                span [ ]
+                    [ str txt ]
 
-//             member __.SplittedLayout iconView title message =
-//                 Columns.columns [ Columns.IsGapless
-//                                   Columns.IsVCentered ]
-//                     [ Column.column [ Column.Width (Screen.All, Column.Is2) ]
-//                         [ iconView ]
-//                       Column.column [ ]
-//                         [ title
-//                           message ] ]
+            member __.SplittedLayout iconView title message =
+                Columns.columns [ 
+                    Columns.IsGapless
+                    Columns.IsVCentered
+                ] [ 
+                    Column.column [ 
+                        Column.Width (Screen.All, Column.Is2)
+                    ] [ 
+                        if not (isNull iconView) then iconView else div [] []
+                    ]
+                    Column.column [ ] [ 
+                        if not (isNull title) then title else div [] []
+                        if not (isNull message) then message else div [] []
+                    ] 
+                ]
 
-//             member __.StatusToColor status =
-//                 match status with
-//                 | Toast.Success -> "is-success"
-//                 | Toast.Warning -> "is-warning"
-//                 | Toast.Error -> "is-danger"
-//                 | Toast.Info -> "is-info" }
+            member __.StatusToColor status =
+                match status with
+                | Toast.Success -> "is-success"
+                | Toast.Warning -> "is-warning"
+                | Toast.Error -> "is-danger"
+                | Toast.Info -> "is-info"
+        }

@@ -105,8 +105,8 @@ module View =
             ()
 
     let view (model : Model) (dispatch : Msg -> unit) =
-        Panel.panel [] [
-            Panel.heading [] [ str "Projects" ]
+        Panel.panel [ Panel.Color Color.IsPrimary ] [
+            Panel.heading [ ] [ str "Projects" ]
             Panel.Block.div [] [
                 Menu.menu [] [
                     Menu.list [] [

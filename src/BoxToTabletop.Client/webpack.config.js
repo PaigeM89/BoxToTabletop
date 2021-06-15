@@ -67,7 +67,7 @@ module.exports = {
             use: "fable-loader"
         },
         {
-            test: /\.(sass|scss|css)$/,
+            test: /\.(sass|scss)$/,
             use: [
                 isProduction ? MiniCssExtractPlugin.loader : 'style-loader',
                 'css-loader',

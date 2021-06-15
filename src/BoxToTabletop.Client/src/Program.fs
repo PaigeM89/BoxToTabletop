@@ -252,7 +252,7 @@ module View =
         DragDropContext.context model.DragAndDrop (DndMsg >> dispatch) div [] [
             navbar
             Container.container [ Container.IsFluid ] [
-                Columns.columns [ Columns.IsGap (Screen.All, Columns.Is1); Columns.IsGrid; ]
+                Columns.columns [ Columns.IsGap (Screen.All, Columns.Is1) ]
                     [
                         leftPanel model dispatch
                         if dividerOption.IsSome then Option.get dividerOption
@@ -432,12 +432,12 @@ let handleDndMsg (msg : DragAndDropMsg) (model : Model) =
 open Fable.FontAwesome
 
 let update (msg : Msg) (model : Model) =
-    let maybeAddSpin cmd = cmd
-        // if model.SpinnerState.Spin then
-        //     let tcmd = Cmd.ofMsg RaiseToast
-        //     [ cmd; tcmd ] |> Cmd.batch
-        // else
-        //     cmd
+    let maybeAddSpin cmd =
+        if model.SpinnerState.Spin then
+            let tcmd = Cmd.ofMsg RaiseToast
+            [ cmd; tcmd ] |> Cmd.batch
+        else
+            cmd
 
     match msg with
     | Start ->
@@ -446,17 +446,6 @@ let update (msg : Msg) (model : Model) =
     | LoginMsg loginMsg ->
         let model, cmd = handleLoginMsg loginMsg model
         model, (cmd |> maybeAddSpin)
-    // | LoginMsg (Login.Msg.GetTokenSuccess token) ->
-    //     let loginModel, loginCmd = Login.update (Login.Msg.GetTokenSuccess token) model.LoginModel
-    //     let config = { model.Config with JwtToken = loginModel.JwtToken }
-    //     let startCmd = Cmd.ofMsg Start
-    //     let loginCmd = loginCmd  |> Cmd.map LoginMsg
-    //     let model = { model with Config = config }
-    //     let cmd = [ startCmd; loginCmd ] |> Cmd.batch |> maybeAddSpin
-    //     (model.RepopulateConfig()), cmd
-    // | LoginMsg loginMsg ->
-    //     let loginModel, loginCmd = Login.update loginMsg model.LoginModel
-    //     { model with LoginModel = loginModel }, (loginCmd |> Cmd.map LoginMsg) |> maybeAddSpin
     | DndMsg dndMsg ->
         let model, cmd = handleDndMsg dndMsg model
         model, (cmd |> maybeAddSpin)
@@ -482,20 +471,16 @@ let update (msg : Msg) (model : Model) =
         let m = model.ErrorMessages |> Map.remove errorId
         { model with ErrorMessages = m }, Cmd.none
     | RaiseToast ->
-        let cmd = Cmd.none
-        // todo: recreate & fix this upstream
-        // if model.SpinnerState.Spin then
-        //     let bldr =
-        //         Toast.message "Loading..."
-        //         |> Toast.icon (Fa.i [Fa.Solid.Spinner; Fa.Spin ] [])
-        //         |> Toast.position Toast.TopRight
-        //         |> Toast.timeout (TimeSpan.FromSeconds (2.0))
-        //         |> Toast.title "title"
-        //     let toastCmd = bldr |> Toast.info
-        //     printfn "toast command is %A" toastCmd
-        //     model, toastCmd
-        // else model, Cmd.none
-        model, cmd
+        if model.SpinnerState.Spin then
+            let iconOptions = [ Fa.Solid.Spinner; Fa.Spin ]
+            let bldr =
+                Toast.message "Loading..."
+                |> Toast.icon iconOptions
+                |> Toast.position Toast.BottomRight
+                |> Toast.timeout (TimeSpan.FromSeconds (2.0))
+            let toastCmd = bldr |> Toast.info
+            model, toastCmd
+        else model, Cmd.none
     | ToggleDarkMode(mode) ->
         let config = Config.withDarkModeFlag mode model.Config
         let mdl = { model with Config = config }
@@ -531,7 +516,7 @@ Program.mkProgram
     update
     View.view
 // |> Program.withConsoleTrace
-// |> Toast.Program.withToast Toast.renderToastWithFulma
+|> Toast.Program.withToast Toast.renderToastWithFulma
 |> Program.withReactBatched "root"
 #if DEBUG
 |> Program.runWith (Some "http://localhost:5000")
