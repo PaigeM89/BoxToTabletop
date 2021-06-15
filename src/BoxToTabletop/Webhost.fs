@@ -21,13 +21,14 @@ module Webhost =
     open BoxToTabletop.Routing
     open BoxToTabletop.Repository
 
-    let configureCors (builder : CorsPolicyBuilder) =
-        builder.WithOrigins([|"http://localhost:8090"; "http://localhost:5000"|]).AllowAnyMethod().AllowAnyHeader() |> ignore
+    let configureCors (config : ApplicationConfig) (builder : CorsPolicyBuilder) =
+        //let localUrls = [|"http://localhost:8090"; "http://localhost:5000"|]
+        builder.WithOrigins(config.CorsOrigins).AllowAnyMethod().AllowAnyHeader() |> ignore
 
-    let configureApp (app : IApplicationBuilder) =
+    let configureApp config (app : IApplicationBuilder) =
         // Add Giraffe to the ASP.NET Core pipeline
         app
-            .UseCors(configureCors)
+            .UseCors(configureCors config)
             .UseAuthentication()
             .UseGiraffe (Routing.webApp())
 
@@ -42,9 +43,7 @@ module Webhost =
                 options.Authority <- issuer
                 options.TokenValidationParameters <- validationParams
                 options.SaveToken <- true
-#if DEBUG
                 options.RequireHttpsMetadata <- false
-#endif
             )
 
     let configureDependencyInjection (config : ApplicationConfig) (svcs : IServiceCollection) =
@@ -54,6 +53,7 @@ module Webhost =
             .AddScoped<IModifyProjects, ProjectModifier>(fun _ -> new ProjectModifier(connFunc) )
             .AddScoped<ILoadUnits, UnitLoader>(fun _ -> new UnitLoader(connFunc) )
             .AddScoped<IModifyUnits, UnitModifier>(fun _ -> new UnitModifier(connFunc) )
+            .AddSingleton<ApplicationConfig>(fun _ -> config)
 
     let configureServices (config : ApplicationConfig) (services : IServiceCollection) =
         // Add Giraffe dependencies
@@ -69,7 +69,7 @@ module Webhost =
             .ConfigureWebHostDefaults(
                 fun webHostBuilder ->
                     webHostBuilder
-                        .Configure(configureApp)
+                        .Configure(configureApp config)
                         .ConfigureServices(configureServices config)
                         |> ignore)
             .Build()

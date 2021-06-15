@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: btt-client
+  labels:
+    app: btt-client
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: btt-client
+  template:
+    metadata:
+      labels:
+        app: btt-client
+    spec:
+      containers:
+      - name: btt-client
+        image: registry.digitalocean.com/mpaige-container-registry/btt-client:v0.1.4
+        ports:
+        - name: http
+          containerPort: 80
+        - name: https
+          containerPort: 443

@@ -57,10 +57,10 @@ const handleRedirect = async() => {
   window.history.replaceState({}, document.title, "/");
 }
 
-const getToken = async() => {
+const getToken = async(audience) => {
   const tokenStr = await auth0.getTokenWithPopup({
     scope: 'email',
-    audience: 'http://localhost:5000'
+    audience: audience //'http://localhost:5000'
   }, {
     timeoutInSeconds: 90
   });

@@ -75,13 +75,19 @@ module Configuration =
     type ApplicationConfig = {
         PostgresConfig : PostgresConfig
         Auth0Config : Auth0Config
+        CorsOrigins: string array
     } with
         static member Default() = {
             PostgresConfig = PostgresConfig.Default()
             Auth0Config = Auth0Config.Empty()
+            CorsOrigins = [||]
         }
 
-        static member Create postgresConf auth0Conf = { PostgresConfig = postgresConf; Auth0Config = auth0Conf }
+        static member Create postgresConf auth0Conf cors = { 
+            PostgresConfig = postgresConf
+            Auth0Config = auth0Conf 
+            CorsOrigins = cors
+        }
 
         member this.Printable() = { this with PostgresConfig = this.PostgresConfig.Printable() }
 
@@ -129,3 +135,11 @@ module Configuration =
                 Audience = audience
                 ClientId = clientId
             } |> Ok
+    
+    let tryGetCors() =
+        let defaultCors = [|"http://localhost:8090"; "http://localhost:5000"|]
+        let envValues = getEnvOr "" "CORS_ORIGINS"
+        if envValues = "" then
+            defaultCors
+        else
+            envValues.Split(",")

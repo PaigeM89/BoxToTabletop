@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: btt-server
+  labels:
+    app: btt-server
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: btt-server
+  template:
+    metadata:
+      labels:
+        app: btt-server
+    spec:
+      containers:
+      - name: btt-server
+        image: registry.digitalocean.com/mpaige-container-registry/btt-server:v0.1.6
+        env:
+        - name: AUTH0_DOMAIN
+          value: "dev-6duts2ta.us.auth0.com"
+        - name: AUTH0_CLIENTID
+          value: "znj5EvPfoPrzk7B7JF2hGmws8mdXVXqJ"
+        - name: AUTH0_AUDIENCE
+          value: "https://api.boxtotabletop.com"
+        - name: PG_HOST
+          value: "postgres"
+        - name: PG_DB
+          value: "boxtotabletop"
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: postgres-login-secret
+              key: POSTGRES_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-login-secret
+              key: POSTGRES_PASSWORD
+        - name: CORS_ORIGINS
+          value: "https://boxtotabletop.com,http://boxtotabletop.com"
+        ports:
+        - containerPort: 80

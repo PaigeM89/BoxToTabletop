@@ -1,4 +1,4 @@
 FROM mcr.microsoft.com/dotnet/aspnet:5.0
 COPY bin/local/Release/net5.0/publish/ App/
 WORKDIR /App
-ENTRYPOINT ["dotnet", "BoxToTabletop.dll", "--run", "--postgreshost", "postgres" ]
+ENTRYPOINT ["dotnet", "BoxToTabletop.dll" ]

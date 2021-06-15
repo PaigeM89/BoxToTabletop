@@ -310,7 +310,7 @@ module UnitsList =
       if List.length commands > 0 then
         commands |> Cmd.batch
       else
-        printfn "no unit changes to dispatch, returning empty command"
+        // printfn "no unit changes to dispatch, returning empty command"
         Cmd.ofMsg NoUnitsToUpdate
 
     let updatePriorities (model : Model) =
@@ -475,14 +475,14 @@ module UnitsList =
 
       UpdateResponse.basic mdl (Cmd.map DebouncerSelfMsg debouncerCmd)
     | ScrapePriorities ->
-      printfn "scraping unit priorities"
+      // printfn "scraping unit priorities"
       let (debouncerModel, debouncerCmd) =
         model.Debouncer
         |> Debouncer.bounce (TimeSpan.FromSeconds 20.) "unit_changes" DispatchChanges
       let mdl = { model with Debouncer = debouncerModel}
       UpdateResponse.basic mdl (Cmd.map DebouncerSelfMsg debouncerCmd)
     | DispatchChanges ->
-      printfn "Dispatching changes"
+      // printfn "Dispatching changes"
       let spin = Core.SpinnerStart spinnerId
       // let cmd = ApiCalls.updateUnits model |> Cmd.map ApiCallResponse
       let cmd1 = SaveChangesMsg.SaveUnitChanges None |> Saving |> Cmd.ofMsg

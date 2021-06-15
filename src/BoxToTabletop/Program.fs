@@ -97,8 +97,9 @@ module Main =
         let logger = LogProvider.getLoggerByFunc()
         match tryParseAuth0Config results with
         | Ok auth0Config ->
+            let cors = tryGetCors()
             let postgresConf = PostgresConfig.Default()
-            let config = ApplicationConfig.Create postgresConf auth0Config
+            let config = ApplicationConfig.Create postgresConf auth0Config cors
             !! "Config is {config}" >>!+ ("config", config.Printable()) |> logger.info
             let connstr = config.PostgresConfig.PostgresConnectionString()
             MigrationRunner.run connstr

@@ -11,6 +11,38 @@ open Thoth.Json.Net
 
 module Types =
 
+    type Auth0ConfigJson = {
+        Domain : string
+        ClientId : string
+        Audience : string
+    } with
+        static member Create domain clientId audience = {
+            Domain = domain
+            ClientId = clientId
+            Audience = audience
+        }
+        static member Decoder : Decoder<Auth0ConfigJson> =
+            Decode.object (fun get ->
+                {
+                    Domain = get.Required.Field "domain" Decode.string
+                    ClientId = get.Required.Field "client_id" Decode.string
+                    Audience = get.Required.Field "audience" Decode.string
+                }
+            )
+
+        member this.Encode() =
+            Encode.object [
+                "domain", Encode.string this.Domain
+                "client_id", Encode.string this.ClientId
+                "audience", Encode.string this.Audience
+            ]
+        
+        static member Empty() = {
+            Domain = ""
+            ClientId = ""
+            Audience = ""
+        }
+
     type Unit = {
         Id : Guid
         ProjectId : Guid

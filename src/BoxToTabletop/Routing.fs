@@ -369,6 +369,13 @@ module Routing =
                     return! Successful.OK rowsAffected next ctx
         }
 
+    let getAuth0Config next (ctx : HttpContext) = task {
+        let config = ctx.GetService<Configuration.ApplicationConfig>()
+        let asJsonObject = Auth0ConfigJson.Create config.Auth0Config.Domain config.Auth0Config.ClientId config.Auth0Config.Audience
+        let encoded = asJsonObject.Encode()
+        return! Successful.OK encoded next ctx
+    }
+
     let parsingErrorHandler (err : string) next ctx =
         !! "Error parsing json from request. Error: {err}"
         >>!- ("err", err)
@@ -385,6 +392,7 @@ module Routing =
 
     let webApp() =
         choose [
+            routeCi Routes.Auth0Config >=> GET >=> getAuth0Config
             routeStartsWithCi Routes.Root >=> authenticated >=> choose [
                 POST >=> routeCif (Routes.UnitRoutes.Transfer.POST()) (fun unitId -> Units.transferUnit unitId)
                 GET >=> routeCi Routes.UnitRoutes.Root >=> Units.listUnits

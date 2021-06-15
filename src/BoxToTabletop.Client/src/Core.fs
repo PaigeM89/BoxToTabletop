@@ -49,17 +49,37 @@ module Core =
         }
 
 module Config =
+    type Auth0Config = {
+        ClientId : string
+        Domain : string
+        Audience : string
+    } with
+        static member Empty() = { ClientId = ""; Domain = ""; Audience = "" }
+        static member Create clientId domain audience = {
+            ClientId = clientId
+            Domain = domain
+            Audience = audience
+        }
+
     type T = {
         ServerUrl : string
+        ClientUrl : string
+        Auth0Config : Auth0ConfigJson
         JwtToken : string option
     } with
         static member Default() = {
-            ServerUrl =  "http://localhost:5000"
+            ServerUrl =  "" //"http://localhost:5000"
+            ClientUrl = ""
+            Auth0Config = Auth0ConfigJson.Empty()
             JwtToken = None
         }
 
     let withServerUrl (serverUrl : string) (t : T) =
         { t with ServerUrl = serverUrl }
+    let withClientUrl (clientUrl : string) (t : T) =
+        { t with ClientUrl = clientUrl }
+    let withAuth0Config conf (t : T) = { t with Auth0Config = conf }
+    let withToken token (t : T) = { t with JwtToken = Some token }
 
 module Promises =
     open Fetch
@@ -135,6 +155,15 @@ module Promises =
         fun (x, y) -> Routes.combine config.ServerUrl (sprintf routeEval x y)
 
     let addQueryParam qparam qvalue route = route + (sprintf "?%s=%s" qparam qvalue)
+
+    let getAuth0Config (config : Config.T) = promise {
+        let url = Routes.Auth0Config |> buildRouteSimple config
+        let decoder = Types.Auth0ConfigJson.Decoder
+        let headers = [
+            Origin "*"
+        ]
+        return! Fetch.tryGet(url, decoder = decoder, headers = headers)
+    }
 
     let createUnit (config : Config.T) (unit : Types.Unit) = promise {
         let url = UnitRoutes.Root |> buildRouteSimple config

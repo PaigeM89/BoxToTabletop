@@ -1,6 +1,8 @@
 namespace BoxToTabletop.Client
 
 open Fable.React
+open BoxToTabletop.Domain
+open BoxToTabletop.Domain.Types
 
 module Login =
   open Fable.Core
@@ -31,17 +33,6 @@ module Login =
       UserId = None
     }
 
-  // let createFromObject (jsObj : obj) =
-  //   let user = User()
-  //   user.name <- jsObj?name
-  //   user.given_name <- jsObj?given_name
-  //   user.nickname <- jsObj?nickname
-  //   user.email <- jsObj?email
-  //   user.email_verified <- jsObj?email_verified
-  //   user.locale <- jsObj?locale
-  //   user.user_id <- jsObj?user_id
-  //   user
-
   let tryProp jsObj prop =
     let v = jsObj?(prop)
     Some v
@@ -58,6 +49,10 @@ module Login =
     }
 
   type Msg =
+  | InitLoginProcess of config : Config.T
+  | TryGetAuth0Config of config : Config.T
+  | GetAuth0ConfigSuccess of Result<Auth0ConfigJson, Thoth.Fetch.FetchError>
+  | GetAuth0ConfigError of exn
   | TryCreateClient
   | CreateClientSuccess of unit //of client : obj
   | CreateClientError of exn
@@ -77,11 +72,25 @@ module Login =
   | GetTokenSuccess of token : string
   | GetTokenException of exn
   
+  type RaisedMsg =
+  | Auth0ConfigLoaded of conf : Auth0ConfigJson
+  | RaiseError of message : string
+  | GotToken of token : string
+
   type Model = {
     User : UserRecord option
     JwtToken : string option
+    ServerUrl : string
+    ClientUrl : string
+    Auth0Config : Types.Auth0ConfigJson
   } with
-    static member Empty() = { User = None; JwtToken = None }
+    static member Empty() = { 
+      User = None
+      JwtToken = None
+      ServerUrl = ""
+      ClientUrl = ""
+      Auth0Config = Auth0ConfigJson.Empty()
+    }
 
   [<ImportMember("./auth0/login.js")>]
   let configureClient : (string * string -> Promise<unit>)= jsNative
@@ -102,18 +111,22 @@ module Login =
   let handleRedirect : unit -> Promise<unit> = jsNative
 
   [<ImportMember("./auth0/login.js")>]
-  let getToken : unit -> Promise<string> = jsNative
+  let getToken : string -> Promise<string> = jsNative
+
+  let tryGetAuth0Config (config : Config.T) =
+    Cmd.OfPromise.either (Promises.getAuth0Config) config GetAuth0ConfigSuccess GetAuth0ConfigError
+
+  let createClient (conf : Auth0ConfigJson) =
+    //let createClient() = configureClient("dev-6duts2ta.us.auth0.com", "znj5EvPfoPrzk7B7JF2hGmws8mdXVXqJ")
+    let createClient() = configureClient(conf.Domain, conf.ClientId)
+    Cmd.OfPromise.either createClient () CreateClientSuccess CreateClientError
 
   let checkIsAuthenticated() =
     Cmd.OfPromise.either (isAuthenticated) () AuthenticationResult AuthenticationCheckError
 
-  let tryLogin() =
-    let tryLogin() = login (Some "localhost:8090")
+  let tryLogin (clientUrl : string) =
+    let tryLogin() = login (Some clientUrl)
     Cmd.OfPromise.either tryLogin () LoginSuccess LoginError
-
-  let createClient() =
-    let createClient() = configureClient("dev-6duts2ta.us.auth0.com", "znj5EvPfoPrzk7B7JF2hGmws8mdXVXqJ")
-    Cmd.OfPromise.either createClient () CreateClientSuccess CreateClientError
 
   let tryGetUser() =
     Cmd.OfPromise.either getUser () GotUser GetUserException
@@ -121,7 +134,7 @@ module Login =
   let tryLogout() =
     Cmd.OfPromise.attempt logout () LogoutError
 
-  let tryParseQuery() =
+  let tryParseQuery model =
     let query = Browser.Dom.window.location.search
     let codeIndex = query.IndexOf("code=")
     let stateIndex = query.IndexOf("state=")
@@ -129,58 +142,100 @@ module Login =
       Cmd.OfPromise.attempt handleRedirect () RedirectException
     else
       printfn "no code & state found, cannot log in user"
-      tryLogin()
+      tryLogin model.ClientUrl
 
-  let tryGetToken() =
-    Cmd.OfPromise.either getToken () GetTokenSuccess GetTokenException
+  let tryGetToken audience =
+    Cmd.OfPromise.either getToken audience GetTokenSuccess GetTokenException
+
+  type UpdateResponse = Core.UpdateResponse<Model, Msg, RaisedMsg>
 
   let update msg model =
     match msg with
+    | InitLoginProcess config ->
+      UpdateResponse.basic { model with ServerUrl = config.ServerUrl } (tryGetAuth0Config config)
+    | TryGetAuth0Config config ->
+      UpdateResponse.basic model (tryGetAuth0Config config)
+    | GetAuth0ConfigSuccess (Ok auth0conf) ->
+      let raised = Auth0ConfigLoaded auth0conf
+      let cmd = createClient auth0conf
+      let model = { model with Auth0Config = auth0conf }
+      UpdateResponse.withRaised model cmd raised
+    | GetAuth0ConfigSuccess (Error e) ->
+      printfn "Error getting auth0 config: %A" e
+      let raised = RaiseError "Unable to get Auth0 config."
+      UpdateResponse.withRaised model Cmd.none raised
+    | GetAuth0ConfigError e ->
+      printfn "Error getting auth0 config: %A" e
+      let raised = RaiseError "Unable to get Auth0 config."
+      UpdateResponse.withRaised model Cmd.none raised
     | TryCreateClient ->
-      model, Cmd.none
+      let cmd = createClient model.Auth0Config
+      UpdateResponse.basic model cmd
     | CreateClientSuccess _ ->
-      model, Cmd.ofMsg CheckIsAuthenticated
+      let cmd = Cmd.ofMsg CheckIsAuthenticated
+      UpdateResponse.basic model cmd
     | CreateClientError exn ->
       printfn "Create client error is %A" exn
-      model, Cmd.none
+      let raised = RaiseError "Unable to create auth0 client"
+      UpdateResponse.withRaised model Cmd.none raised
     | TryLogin ->
-      model, tryLogin()
-    | LoginSuccess o ->
-      model, Cmd.none
+      let cmd = tryLogin model.ClientUrl
+      UpdateResponse.basic model cmd
+    | LoginSuccess _ ->
+      UpdateResponse.basic model Cmd.none
     | LoginError e ->
       printfn "Login error is %A" e
-      model, Cmd.none
+      let raised = RaiseError "Unable to log in."
+      UpdateResponse.withRaised model Cmd.none raised
     | CheckIsAuthenticated ->
-      model, checkIsAuthenticated()
+      let cmd = checkIsAuthenticated()
+      UpdateResponse.basic model cmd
     | AuthenticationResult res ->
       match res with
       | Some true ->
-        model, tryGetUser()
+        let cmd = tryGetUser()
+        UpdateResponse.basic model cmd
       | Some false ->
-        model, tryParseQuery()
+        let cmd = tryParseQuery model
+        UpdateResponse.basic model cmd
       | None ->
-        model, tryLogin()
+        let cmd = tryLogin model.ClientUrl
+        UpdateResponse.basic model cmd
     | AuthenticationCheckError e ->
       printfn "Authentication check error is %A" e
-      model, Cmd.none
-    | TryGetUser -> model, tryGetUser()
+      let raised = RaiseError "Unable to authenticate user."
+      UpdateResponse.withRaised model Cmd.none raised
+    | TryGetUser ->
+      let cmd = tryGetUser()
+      UpdateResponse.basic model cmd
     | GotUser user ->
       let user = createFromObject user
-      { model with User = Some user }, tryGetToken()
+      let model = { model with User = Some user }
+      let cmd = tryGetToken model.Auth0Config.Audience
+      UpdateResponse.basic model cmd
     | GetUserException e ->
       printfn "Get user exception: %A" e
-      model, Cmd.none
+      let raised = RaiseError "Unable to get user information."
+      UpdateResponse.withRaised model Cmd.none raised
     | TryLogout ->
-      model, tryLogout()
+      let cmd = tryLogout()
+      UpdateResponse.basic model cmd
     | LogoutError e ->
       printfn "logout error: %A" e
-      model, Cmd.none
-    | TryRedirect -> model, tryParseQuery()
+      let raised = RaiseError "Error while logging out."
+      UpdateResponse.withRaised model Cmd.none raised
+    | TryRedirect ->
+      let cmd = tryParseQuery model
+      UpdateResponse.basic model cmd
     | RedirectException e ->
       printfn "Error during redirect from login: %A" e
-      model, Cmd.none
+      let raised = RaiseError "Error redirecting from login."
+      UpdateResponse.withRaised model Cmd.none raised
     | GetTokenSuccess t ->
-      { model with JwtToken = Some t }, Cmd.none
+      let model = { model with JwtToken = Some t }
+      let raised = GotToken t
+      UpdateResponse.withRaised model Cmd.none raised
     | GetTokenException e ->
       printfn "Error getting token: %A" e
-      model, Cmd.none
+      let raised = RaiseError "Error while getting token."
+      UpdateResponse.withRaised model Cmd.none raised

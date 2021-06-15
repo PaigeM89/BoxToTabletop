@@ -1,0 +1,24 @@
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: letsencrypt-staging
+  annotations:
+    cert-manager.io/issuer: btt-issuer
+spec:
+  acme:
+    email: admin@boxtotabletop.com
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      # name: btt-account-key
+      name: letsencrypt-staging
+    solvers:
+    - dns01:
+        digitalocean:
+          tokenSecretRef:
+            name: digitalocean-dns
+            key: access-token
+      # selector:
+      #   dnsNames:
+      #   - "*.boxtotabletop.com"
+      #   dnsZones:
+      #   - "boxtotabletop.com"

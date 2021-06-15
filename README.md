@@ -127,6 +127,46 @@ $ ./build.sh  <optional buildtarget>// on unix
 
 ### Releasing
 
+#### Create docker images of the published versions of the projects
+
+Note that the Client command needs to be run in the directory with the `package.json` file, so you still need to CD to that directory
+
+```bash
+./src/BoxToTabletop.Client/create-docker-image.sh
+./src/BoxToTabletop/create-docker-image.sh
+```
+
+#### Tag images with the private repository
+
+These instructions are for Digital Ocean, consult your cloud provider if hosting this project yourself somewhere else.
+
+```bash
+doctl registry login
+docker tag registry.digitalocean.com/<my-registry>/<btt-client/btt-server>:<version>
+docker tag registry.digitalocean.com/<my-registry>/<btt-client/btt-server>:latest
+docker push registry.digitalocean.com/<my-registry>/<btt-client/btt-server>:<version>
+docker push registry.digitalocean.com/<my-registry>/<btt-client/btt-server>:latest
+```
+
+Or just run `./tagAndPush.sh <image tag> <version>` in the server/client folders.
+
+#### Kubernetes
+
+Deploy changes via the files in `k8s` with `kubectl apply -f <filename>`. 
+
+Find your running services with `kubectl get pods`.
+
+#### Resources
+
+Note that TLS termination was done at the laod balancer in Digital Ocean so none of these were needed after all.
+
+* [Cert-manager for Kubernetes](https://github.com/jetstack/cert-manager)
+  * Installed via `kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v1.3.1/cert-manager.yaml`. This is a massive file & it's impossible to verify everything in it.
+  * Also install the `cert-manager` kubectl plugin [here](https://cert-manager.io/docs/usage/kubectl-plugin/). The config seems to merely create custom resource definitions, and not start anything, despite what the documentation says.
+* [Let's Encrypt On K8s](https://runnable.com/blog/how-to-use-lets-encrypt-on-kubernetes) - this seems out of date
+
+### Original miniscaffold release notes below
+
 - [Start a git repo with a remote](https://help.github.com/articles/adding-an-existing-project-to-github-using-the-command-line/)
 
 ```sh
@@ -188,3 +228,5 @@ macOS/Linux Environment Variable:
 ```sh
 RELEASE_VERSION=0.2.0 ./build.sh Release
 ```
+
+

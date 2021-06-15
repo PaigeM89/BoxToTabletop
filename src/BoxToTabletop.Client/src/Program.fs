@@ -98,6 +98,8 @@ let removeSpin source (model : Model) =
     let newSpinState = { Spin = spin; Sources = sources}
     { model with SpinnerState = newSpinState }
 
+let repopulateConfig (model : Model) = model.RepopulateConfig()
+
 type Msg =
 | Start
 | LoginMsg of Login.Msg
@@ -375,6 +377,35 @@ let handleProjectsListMsg (msg : ProjectsList.Msg) (model : Model) =
 
     { mdl with ProjectsListModel = plModel}, [ cmd; plCmd ] |> Cmd.batch
 
+let handleLoginMsg (msg : Login.Msg) (model : Model) =
+    let updateResponse = Login.update msg model.LoginModel
+
+    let model =
+        match updateResponse.spinner with
+        | Some (SpinnerStart sourceId) -> addSpinStart sourceId model
+        | Some (SpinnerEnd sourceId) -> removeSpin sourceId model
+        | None -> model
+
+    let mdl, cmd =
+        match updateResponse.raised with
+        | Some (Login.Auth0ConfigLoaded conf) ->
+            let config = Config.withAuth0Config conf model.Config
+            { model with Config = config }, Cmd.none
+        | Some (Login.GotToken t) ->
+            let config = Config.withToken t model.Config
+            let cmd = Start |> Cmd.ofMsg
+            let model = { model with Config = config } |> repopulateConfig
+            model, cmd
+        | Some (Login.RaiseError errorMsg) ->
+            let err = WithTitle("Login Error", errorMsg)
+            addErrorMessage (Guid.NewGuid()) err model, Cmd.none
+        | None -> model, Cmd.none
+    
+    let loginMdl = updateResponse.model
+    let loginCmd = updateResponse.cmd |> Cmd.map LoginMsg
+
+    { mdl with LoginModel = loginMdl}, [ cmd; loginCmd ] |> Cmd.batch
+
 let handleDndMsg (msg : DragAndDropMsg) (model : Model) =
     let updateResponse = UnitsList.update model.UnitsListModel (UnitsList.Msg.DndMsg (msg, None))
 
@@ -400,17 +431,20 @@ let update (msg : Msg) (model : Model) =
     | Start ->
         let loadProjectsCmd = Cmd.ofMsg (ProjectsList.Msg.LoadAllProjects)
         model, Cmd.map ProjectsListMsg loadProjectsCmd
-    | LoginMsg (Login.Msg.GetTokenSuccess token) ->
-        let loginModel, loginCmd = Login.update (Login.Msg.GetTokenSuccess token) model.LoginModel
-        let config = { model.Config with JwtToken = loginModel.JwtToken }
-        let startCmd = Cmd.ofMsg Start
-        let loginCmd = loginCmd  |> Cmd.map LoginMsg
-        let model = { model with Config = config }
-        let cmd = [ startCmd; loginCmd ] |> Cmd.batch |> maybeAddSpin
-        (model.RepopulateConfig()), cmd
     | LoginMsg loginMsg ->
-        let loginModel, loginCmd = Login.update loginMsg model.LoginModel
-        { model with LoginModel = loginModel }, (loginCmd |> Cmd.map LoginMsg) |> maybeAddSpin
+        let model, cmd = handleLoginMsg loginMsg model
+        model, (cmd |> maybeAddSpin)
+    // | LoginMsg (Login.Msg.GetTokenSuccess token) ->
+    //     let loginModel, loginCmd = Login.update (Login.Msg.GetTokenSuccess token) model.LoginModel
+    //     let config = { model.Config with JwtToken = loginModel.JwtToken }
+    //     let startCmd = Cmd.ofMsg Start
+    //     let loginCmd = loginCmd  |> Cmd.map LoginMsg
+    //     let model = { model with Config = config }
+    //     let cmd = [ startCmd; loginCmd ] |> Cmd.batch |> maybeAddSpin
+    //     (model.RepopulateConfig()), cmd
+    // | LoginMsg loginMsg ->
+    //     let loginModel, loginCmd = Login.update loginMsg model.LoginModel
+    //     { model with LoginModel = loginModel }, (loginCmd |> Cmd.map LoginMsg) |> maybeAddSpin
     | DndMsg dndMsg ->
         let model, cmd = handleDndMsg dndMsg model
         model, (cmd |> maybeAddSpin)
@@ -453,15 +487,21 @@ let update (msg : Msg) (model : Model) =
 
 
 
-let init (url : string option) =
-    let config = Config.T.Default()
+let init (serverUrl : string option) =
+    let config = 
+        Config.T.Default()
+#if DEBUG
+        |> Config.withClientUrl "localhost:8092"
+#else
+        |> Config.withClientUrl "https://boxtotabletop.com"
+#endif
     let config =
-        match url with
+        match serverUrl with
         | Some url -> Config.withServerUrl url config
         | None -> config
     let model = Model.InitWithConfig config
     
-    let cmd = Login.createClient() |> Cmd.map LoginMsg
+    let cmd = Login.InitLoginProcess config |> LoginMsg |> Cmd.ofMsg
 
     { model with Config = config}, cmd
 
@@ -475,8 +515,9 @@ Program.mkProgram
 #if DEBUG
 |> Program.runWith (Some "http://localhost:5000")
 #else
-// in release mode, point to nginx
-|> Program.runWith (Some "http://localhost:8092")
+// in release mode, point to the server
+|> Program.runWith (Some "https://api.boxtotabletop.com")
+    //(Some "http://localhost:8092")
 #endif
 
 

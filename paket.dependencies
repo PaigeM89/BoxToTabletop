@@ -57,7 +57,7 @@ group Client
   nuget Fable.Promise
   nuget Fulma
   nuget Fable.SimpleHttp
-  nuget Elmish.DragAndDrop 0.3.0-alpha02
+  nuget Elmish.DragAndDrop 0.3.0
 
 // [ FAKE GROUP ]
 group Build

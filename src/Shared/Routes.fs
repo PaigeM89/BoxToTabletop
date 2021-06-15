@@ -13,11 +13,11 @@ let inline (%%) str1 str2 =
 
 
 let Root = "/api/v1"
+let Auth0Config = Root %% "auth_config"
 
 // todo: see if these can better handle guids
 // and see if we can make routing cleaner in the server
 // i don't like any of the ways I'm doing these
-
 
 module ProjectRoutes =
     let Root = Root %% "projects"
@@ -41,5 +41,5 @@ module UnitRoutes =
 
     // todo: this really should just be a PATCH on unit but that requires a lot more infrastructure
     module Transfer =
-            let Root = Root %% "%O/transfer"
-            let POST() = PrintfFormat<_,_,_,_,_> Root
+        let Root = Root %% "%O/transfer"
+        let POST() = PrintfFormat<_,_,_,_,_> Root
