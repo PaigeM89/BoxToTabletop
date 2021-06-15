@@ -363,8 +363,6 @@ module Routing =
                 else
                     // if/when we determine what is needed by the UI, return something
                     // until then, return the number of rows affected
-                    //let encoded = Domain.Types.UnitPriority.EncodeList decoded
-                    //!! "Successfully updated priorties, returning {x}" >>!+ ("x", encoded) |> logger.info
                     !! "Successfully updated priorities" |> logger.info
                     return! Successful.OK rowsAffected next ctx
         }

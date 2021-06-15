@@ -505,6 +505,8 @@ let init (serverUrl : string option) =
 
     { model with Config = config}, cmd
 
+Fable.Core.JsInterop.importAll "./sass-styles.scss"
+
 Program.mkProgram
     init
     update
