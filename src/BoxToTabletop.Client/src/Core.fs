@@ -66,12 +66,14 @@ module Config =
         ClientUrl : string
         Auth0Config : Auth0ConfigJson
         JwtToken : string option
+        IsDarkMode : bool
     } with
         static member Default() = {
             ServerUrl =  "" //"http://localhost:5000"
             ClientUrl = ""
             Auth0Config = Auth0ConfigJson.Empty()
             JwtToken = None
+            IsDarkMode = false
         }
 
     let withServerUrl (serverUrl : string) (t : T) =
@@ -80,6 +82,8 @@ module Config =
         { t with ClientUrl = clientUrl }
     let withAuth0Config conf (t : T) = { t with Auth0Config = conf }
     let withToken token (t : T) = { t with JwtToken = Some token }
+
+    let withDarkModeFlag b (t : T) = { t with IsDarkMode = b }
 
 module Promises =
     open Fetch

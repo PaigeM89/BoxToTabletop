@@ -28,6 +28,8 @@ module ProjectSettings =
             Config = config
         }
 
+        member this.SetConfig config = { this with Config = config }
+
     module Model =
         let setProject m p =
             { m with Project = Some p }

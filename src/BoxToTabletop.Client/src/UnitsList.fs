@@ -66,6 +66,8 @@ module UnitsList =
       ProjectChangeStatus = NoPendingChange
     }
 
+    member this.SetConfig config = { this with Config = config }
+
   let replaceUnit (unit : Types.Unit) model =
     let unitIdStr = string unit.Id
     let m = model.UnitMap |> Map.add unitIdStr unit
