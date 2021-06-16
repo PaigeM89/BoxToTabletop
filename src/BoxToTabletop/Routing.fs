@@ -70,20 +70,20 @@ module Routing =
     type Saver<'a> = CreateConn -> 'a -> Task<int>
     type Updater<'a> = CreateConn -> 'a -> Task<int>
     type Deleter = CreateConn -> Guid -> Task<int>
-    type Dependencies = {
-        createConnection : CreateConn
-        loadAllUnits : CreateConn -> Guid -> Task<Unit list>
-        loadUnit : Loader<Unit>
-        saveUnit : Saver<DbTypes.Unit>
-        updateUnit : Updater<DbTypes.Unit>
-        deleteUnit : CreateConn -> Guid -> Task<int>
-        loadAllProjects : LoadAll<Domain.Types.Project>
-        loadProject : Loader<Domain.Types.Project>
-        saveProject : Saver<DbTypes.Project>
-        updateProject : Updater<DbTypes.Project>
-        deleteProject : Deleter
-        updatePriority : CreateConn -> Guid -> Guid -> int -> Task<int>
-    }
+    // type Dependencies = {
+    //     createConnection : CreateConn
+    //     loadAllUnits : CreateConn -> Guid -> Task<Unit list>
+    //     loadUnit : Loader<Unit>
+    //     saveUnit : Saver<DbTypes.Unit>
+    //     updateUnit : Updater<DbTypes.Unit>
+    //     deleteUnit : CreateConn -> Guid -> Task<int>
+    //     loadAllProjects : LoadAll<Domain.Types.Project>
+    //     loadProject : Loader<Domain.Types.Project>
+    //     saveProject : Saver<DbTypes.Project>
+    //     updateProject : Updater<DbTypes.Project>
+    //     deleteProject : Deleter
+    //     updatePriority : CreateConn -> Guid -> Guid -> int -> Task<int>
+    // }
 
     let getToken (ctx : HttpContext) =
         match ctx.GetRequestHeader("Authorization") with
@@ -179,8 +179,12 @@ module Routing =
             let unitsDecoded = Thoth.Json.Net.Decode.fromString Types.Unit.DecodeMany body
             match unitsDecoded with
             | Ok units ->
+                let unitsForUser = units |> List.filter (fun u -> u.OwnerId = userId)
+                if (List.length unitsForUser) <> (List.length units) then
+                    let diff = List.length units - (List.length unitsForUser)
+                    !! "Attempting to update {count} units not owned by user." >>!- ("count", diff) |> logger.warn
                 let updater = ctx.GetService<IModifyUnits>()
-                let tasks = units |> List.map updater.Update
+                let tasks = unitsForUser |> List.map updater.Update
                 let! updatedRows = Task.WhenAll tasks
                 let sumUpdatedRows = Array.sum updatedRows
                 let expected = List.length units
@@ -189,8 +193,11 @@ module Routing =
                     >>!- ("expected", expected) >>!- ("sumUpdatedRows", sumUpdatedRows) |> logger.warn
                 else
                     !! "Updated {sumUpdatedRows} units" >>!- ("sumUpdatedRows", sumUpdatedRows) |> logger.info
-                let encoded = Types.Unit.EncodeList units
-                return! Successful.OK encoded next ctx
+                // let encoded = Types.Unit.EncodeList units
+                // return! Successful.OK encoded next ctx
+                // return the number of updated records
+                let updatedIds = unitsForUser |> List.map (fun x -> x.Id)
+                return! Successful.OK updatedIds next ctx
             | Error e ->
                 !! "Error decoding units: {err}" >>!+ ("err", e) |> logger.error
                 return! ServerErrors.INTERNAL_ERROR "Error updating units" next ctx

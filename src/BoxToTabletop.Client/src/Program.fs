@@ -117,6 +117,7 @@ type Msg =
 module View =
     open Fable.React.Props
     open Fable.FontAwesome
+    open Extensions.CreativeBulma
 
     let mapShowSpinner (model : Model) =
         match model.SpinnerState.Spin with
@@ -198,35 +199,55 @@ module View =
                 state.ProjectSettingsModel (fun (x : ProjectSettings.Msg) ->  ProjectSettingsMsg x |> dispatch)
 
         if model.IsProjectSectionCollapsed then
-            Column.column [ Column.Width (Screen.All, Column.Is1) ] [
-                Button.button [ Button.Color Color.IsInfo; Button.IsRounded; Button.IsExpanded; Button.OnClick (fun _ -> ExpandProjectNav |> dispatch)  ] [
-                    Fa.i [ Fa.Solid.AngleDoubleRight; Fa.Size Fa.Fa3x;  ] [ ]
-                ]
-            ]
+            div [] []
         else
-
-            Column.column [ Column.Width (Screen.All, Column.Is3) ] [
-                Level.right [] [
-                    Button.button [
-                        Button.Color Color.NoColor
-                        Button.IsRounded
-                        Button.CustomClass "collapse-button"
-                        Button.OnClick (fun _ -> CollapseProjectNav |> dispatch)
-                    ] [
-                        Fa.i [ Fa.Solid.AngleDoubleLeft; Fa.Size Fa.Fa3x;  ] [ ]
-                    ]
-                ]
+            Column.column [ 
+                Column.Width (Screen.All, Column.Is3)
+                Column.Props [ Props.Style [ MarginTop "20px" ] ]
+            ] [
                 ProjectsList.View.view model.ProjectsListModel (fun (x : ProjectsList.Msg) -> ProjectsListMsg x |> dispatch)
                 projectSettingsView model
             ]
 
-    let divider model =
+    let divider model dispatch =
         if model.IsProjectSectionCollapsed then
-            None
-        else
+            let dividerContent = 
+                Button.button [
+                    Button.Color Color.IsInfo
+                    Button.OnClick (fun _ -> ExpandProjectNav |> dispatch)
+                ] [ Fa.i [ Fa.Solid.AngleDoubleRight ] [] ]
             Some
-                (Column.column [ Column.Width (Screen.All, Column.Is1) ] [
-                            Divider.divider [ Divider.IsVertical ]
+                (Column.column [ 
+                    Column.Width (Screen.All, Column.Is1)
+                    Column.Modifiers [Modifier.Display (Screen.All, Display.Flex)]
+                    Column.Props [ Props.Style [ MarginTop "10px" ] ]
+                ] [
+                    Extensions.CreativeBulma.Divider.divider [ 
+                        Divider.DividerOption.IsVertical
+                        Divider.DividerOption.Color IsInfo
+                    ] [ 
+                        dividerContent
+                    ]
+                ])
+        else
+            let dividerContent = 
+                Button.button [
+                    Button.Color Color.IsInfo
+                    Button.OnClick (fun _ -> CollapseProjectNav |> dispatch)
+                ] [ Fa.i [ Fa.Solid.AngleDoubleLeft ] [] ]
+            Some
+                (Column.column 
+                    [ 
+                        Column.Width (Screen.All, Column.Is1)
+                        Column.Modifiers [Modifier.Display (Screen.All, Display.Flex)]
+                        Column.Props [ Props.Style [ MarginTop "10px" ] ]
+                    ] [
+                        Extensions.CreativeBulma.Divider.divider [ 
+                            Divider.DividerOption.IsVertical
+                            Divider.DividerOption.Color IsInfo
+                        ] [ 
+                            dividerContent
+                        ]
                     ])
 
     let errorMessages model dispatch =
@@ -248,14 +269,14 @@ module View =
             AddUnit.View.view model.AddUnitModel (fun (x : AddUnit.Msg) -> AddUnitMsg x |> dispatch)
 
         let navbar = navbar model dispatch
-        let dividerOption = divider model
+        let dividerOpt = divider model dispatch
         DragDropContext.context model.DragAndDrop (DndMsg >> dispatch) div [] [
             navbar
             Container.container [ Container.IsFluid ] [
                 Columns.columns [ Columns.IsGap (Screen.All, Columns.Is1) ]
                     [
                         leftPanel model dispatch
-                        if dividerOption.IsSome then Option.get dividerOption
+                        if dividerOpt.IsSome then Option.get dividerOpt
                         if model.IsProjectSelected then
                             Column.column [  ] [
                                 errorMessages model dispatch

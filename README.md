@@ -5,22 +5,19 @@ This project helps you log & track your model backlog, from building through pai
 MVP:
 * logins - google
     * hide data based on user
-* Use Toast for save alert : https://github.com/thoth-org/Thoth.Elmish.Toast
-    * [ ] Needs an upstream fix, i think
-        * could be due to the `CustomEventInit` now needing type parameters?
 
 Requirements:
 * Dark mode
+* tags for units
+    * filter on tags
 * projects & categories
     * Tree view with N levels, N options at root
     * page loader?
-    * switches
 * account settings
     * quick view
     * customize auto save timer
-    * switches
-    * dark mode
     * name (changeable?)
+      - does this matter if we having sharing links only? only matters if we end up with a "friends" system
 * created & updated timestamps
     * set your own start, end dates
 * sharing links
@@ -37,12 +34,11 @@ Requirements:
 minor changes to make:
 * make add unit box thing collapsable
 * make project box thing collapsable
-* Collapsable "new unit" section
 * Summary
 
-far future: 
+far future:
 * integrate math
-* integrate crusade tracker
+* integrate games/crusade tracker
 
 Look into: 
 * https://bartoszsypytkowski.com/dealing-with-complex-dependency-injection-in-f/

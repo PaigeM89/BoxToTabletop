@@ -86,7 +86,7 @@ module View =
             Menu.Item.li
                 [
                     Menu.Item.IsActive isSelected
-                    Menu.Item.OnClick (fun _ -> printfn "in project list project on click for project %A" proj.Id; Selected proj |> dispatch )
+                    Menu.Item.OnClick (fun _ -> Selected proj |> dispatch )
                 ] [
                     ElementGenerator.Create (sprintf "%A-dnd" proj.Id) [] [] [str label]
                     |> DropArea.asBucket model.DragAndDrop dragAndDropConfig (fun _ _ -> ()) (onDrop proj.Id dispatch) (DragAndDropMsg >> External >> dispatch)

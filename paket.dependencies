@@ -41,10 +41,11 @@ group Client
   nuget FSharp.Core 5.0.1
   nuget Thoth.Json ~> 5.1
   nuget Thoth.Elmish.Debouncer
-  nuget Thoth.Elmish.Toast 3.0.3
+  nuget Thoth.Elmish.Toast 3.0.0
   nuget Fable.Core ~> 3
   nuget Thoth.Fetch
   nuget Fable.Browser.Dom ~> 2
+  nuget Fable.Browser.Event 1.4.5
   nuget Fable.Fetch
   nuget Fable.FontAwesome
   nuget Fable.FontAwesome.Free

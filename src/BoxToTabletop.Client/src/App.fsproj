@@ -8,6 +8,7 @@
     <Compile Include="../../Shared/ResizeArray.fs" />
     <Compile Include="../../Shared/Types.fs" />
     <Compile Include="../../Shared/Routes.fs" />
+    <Compile Include="Components/Divider.fs" />
     <None Include="./auth0/login.js" />
     <Compile Include="AlertMessage.fs" />
     <Compile Include="Core.fs" />

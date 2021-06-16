@@ -188,7 +188,17 @@ module Promises =
             getBearerHeader config
         ]
         let decoder = Types.Unit.Decoder
-        return! Fetch.tryPut(url, data, decoder= decoder, headers = headers)
+        return! Fetch.tryPut(url, data, decoder = decoder, headers = headers)
+    }
+
+    let updateManyUnits (config : Config.T) (units : Types.Unit list) = promise {
+        let url = UnitRoutes.PUTCollection |> buildRouteSimple config
+        let data = Types.Unit.EncodeList units
+        let headers = [
+            getBearerHeader config
+        ]
+        let decoder = Decode.list (Decode.guid)
+        return! Fetch.tryPut(url, data, decoder = decoder, headers = headers)
     }
 
     let loadUnitsForProject (config : Config.T) (projectId : Guid) = async {

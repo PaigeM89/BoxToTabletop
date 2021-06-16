@@ -108,6 +108,7 @@ module UnitsList =
   | LoadUnitsForProject
   | DeleteUnit of unitId : Guid
   | UpdateUnit of unit : Unit
+  | UpdateManyUnits of units : Unit list
   | TransferUnit of unitId : Guid * newProjectId : Guid
 
   /// Messages that handle API call responses or errors
@@ -120,6 +121,8 @@ module UnitsList =
   | TransferUnitFailure of exn
   | UpdateUnitSuccess of response : Result<Unit, Thoth.Fetch.FetchError>
   | UpdateUnitFailure of exn
+  | UpdateManyUnitsSuccess of response: Result<Guid list, Thoth.Fetch.FetchError>
+  | UpdateManyUnitsFailure of exn
   | UpdatePrioritiesSuccess of response: Result<int, Thoth.Fetch.FetchError>
   | UpdatePrioritiesFailure of exn
   | NoUnitsToUpdate
@@ -313,6 +316,13 @@ module UnitsList =
       else
         Cmd.ofMsg NoUnitsToUpdate
 
+    
+    let updateManyUnits model =
+      let units = model.UnitChanges |> Map.toList |> List.map snd
+      let promise units = Promises.updateManyUnits model.Config units
+      let cmd = Cmd.OfPromise.either promise units UpdateManyUnitsSuccess UpdateManyUnitsFailure
+      model, cmd
+
     let updatePriorities (model : Model) =
       let promise () = Promises.updateUnitPriorities model.Config model.ProjectId model.PriorityChanges
       let cmd = Cmd.OfPromise.either promise () UpdatePrioritiesSuccess UpdatePrioritiesFailure
@@ -333,6 +343,9 @@ module UnitsList =
       model, Cmd.none
     | TransferUnit (unitId, newProjectId) ->
       let mdl, cmd = ApiCalls.transferUnit model unitId newProjectId
+      mdl, Cmd.map ApiCallResponse cmd
+    | UpdateManyUnits(units) ->
+      let mdl, cmd = ApiCalls.updateManyUnits model
       mdl, Cmd.map ApiCallResponse cmd
 
   let handleApiCallResponseMsg (model : Model) msg =
@@ -409,6 +422,19 @@ module UnitsList =
           {model with ProjectChangeStatus = NoPendingChange; ProjectId = proj.Id }, Cmd.ofMsg (LoadUnitsForProject |> ApiCallStart), None
         else
           model, Cmd.none, None
+    | UpdateManyUnitsSuccess( Ok updatedUnitIds ) ->
+      let changes =
+        let removeUnit id m = Map.remove id m
+        updatedUnitIds |> List.fold (fun (m : Map<Guid, Unit>) (id : Guid) -> removeUnit id m) model.UnitChanges
+      // this _should_ be empty but we'll see
+      let model = { model with UnitChanges = changes }
+      model, Cmd.none, None
+    | UpdateManyUnitsSuccess (Error fetchError) ->
+      printfn "Thoth fetch error when updating multiple units: %A" fetchError
+      model, Cmd.none, None
+    | UpdateManyUnitsFailure e ->
+      printfn "Error updating multiple units: %A" e
+      model, Cmd.none, None
 
 
   let handleExternalMsg (model : Model) msg =
