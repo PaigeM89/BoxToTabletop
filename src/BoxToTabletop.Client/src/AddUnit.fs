@@ -47,12 +47,14 @@ module AddUnit =
         PartialData : PartialData
         ColumnSettings : ColumnSettings
         Config : Config.T
+        IsCollapsed : bool
     } with
         static member Init config = {
             ProjectId = Guid.Empty
             PartialData = PartialData.Init()
             ColumnSettings = ColumnSettings.Empty()
             Config = config
+            IsCollapsed = false
         }
 
         member this.SetConfig config = { this with Config = config }
@@ -83,6 +85,8 @@ module AddUnit =
     /// Called when 'Add' is clicked. Does not contain a unit, as the input has not been verified.
     | TryAddNewUnit
     | External of ExternalMsg
+    | CollapseAddUnit
+    | ExpandAddUnit
 
     let createColumnSettingsChangeMsg cs = ColumnSettingsChange cs |> External
     let createProjectChangeMsg proj = ProjectChange proj |> External
@@ -93,6 +97,8 @@ module AddUnit =
         open Fulma
         open Browser.Types
         open BoxToTabletop.Domain.Helpers
+        open Fable.FontAwesome
+        open Extensions.CreativeBulma
 
         let addUnitWrapper custom elements =
             div [ ClassName "Block"  ] [ Box.box' custom [
@@ -142,7 +148,7 @@ module AddUnit =
                 ]
             ]
 
-        let view model dispatch =
+        let expandedView model dispatch =
             let partial = model.PartialData
             let cs = model.ColumnSettings
             // printfn "column settings when drawing add unit is %A" cs
@@ -173,7 +179,37 @@ module AddUnit =
                         ]
                     ]
                 ]
+                Extensions.CreativeBulma.Divider.divider [
+                    Divider.DividerOption.Color IsInfo
+                ] [ 
+                    Button.button [
+                        Button.Color Color.IsInfo
+                        Button.OnClick(fun _ -> CollapseAddUnit |> dispatch)
+                    ] [
+                        Fa.i [ Fa.Solid.AngleDoubleUp ] [] 
+                    ]
+                ]
             ]
+
+        let collapsedView model dispatch = 
+            div [] [
+                Extensions.CreativeBulma.Divider.divider [
+                    Divider.DividerOption.Color IsInfo
+                ] [ 
+                    Button.button [
+                        Button.Color Color.IsInfo
+                        Button.OnClick(fun _ -> ExpandAddUnit |> dispatch)
+                    ] [
+                        Fa.i [ Fa.Solid.AngleDoubleDown ] [] 
+                    ]
+                ]
+            ]
+
+        let view model dispatch =
+            if model.IsCollapsed then
+                collapsedView model dispatch
+            else
+                expandedView model dispatch
 
     open Elmish
 
@@ -203,3 +239,9 @@ module AddUnit =
             else
                 let mdl = Model.toggleShowErrors true model
                 UpdateResponse.basic mdl Cmd.none
+        | CollapseAddUnit ->
+            let mdl = { model with IsCollapsed = true }
+            UpdateResponse.basic mdl Cmd.none
+        | ExpandAddUnit ->
+            let mdl = { model with IsCollapsed = false }
+            UpdateResponse.basic mdl Cmd.none

@@ -271,7 +271,6 @@ module UnitsList =
         |> Table.table [ Table.IsBordered; Table.IsStriped; Table.IsNarrow; Table.IsHoverable; Table.CustomClass "list-units-table" ]
       div [] [
         Section.section [ Section.CustomClass "no-padding-section" ] [
-                hr []
                 section [
                 ] [
                     Columns.columns [ Columns.IsGap(Screen.All, Columns.Is1) ] [

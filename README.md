@@ -2,12 +2,9 @@
 
 This project helps you log & track your model backlog, from building through painting and being tabletop ready. If you have a pile of boxes or a collection of sprues, this project helps you manage that madness and watch your progress as you work through it.
 
-MVP:
-* logins - google
-    * hide data based on user
-
 Requirements:
 * Dark mode
+* Save units as one giant data batch
 * tags for units
     * filter on tags
 * projects & categories
@@ -39,9 +36,12 @@ minor changes to make:
 far future:
 * integrate math
 * integrate games/crusade tracker
-
-Look into: 
-* https://bartoszsypytkowski.com/dealing-with-complex-dependency-injection-in-f/
+  * games: 
+    * track : army played, opponent army, opponent, date, win/loss, victory points (objectives/secondaries/turn), mission, game point value
+            * freeform text box for army list?
+  * crusade:
+    * track: games (linked w/ above), roster, XP, abilities
+      * _loose_ - this isn't rebuilding Crusade, this is free-text-enter that's easier & faster than excel.
 
 ---
 
