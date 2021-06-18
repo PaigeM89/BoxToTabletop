@@ -15,7 +15,7 @@ module Types =
         DarkMode : bool
         Crusade : bool
     } with
-        static member Empty() = {
+        static member Default() = {
             DarkMode = false
             Crusade = false
         }

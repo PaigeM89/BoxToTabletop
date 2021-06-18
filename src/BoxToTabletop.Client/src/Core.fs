@@ -66,6 +66,7 @@ module Config =
         ClientUrl : string
         Auth0Config : Auth0ConfigJson
         JwtToken : string option
+        FeatureFlags : Types.FeatureFlags
         IsDarkMode : bool
     } with
         static member Default() = {
@@ -73,6 +74,7 @@ module Config =
             ClientUrl = ""
             Auth0Config = Auth0ConfigJson.Empty()
             JwtToken = None
+            FeatureFlags = FeatureFlags.Default()
             IsDarkMode = false
         }
 

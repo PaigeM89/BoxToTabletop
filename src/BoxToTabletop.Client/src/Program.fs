@@ -158,16 +158,17 @@ module View =
             ]
             Navbar.End.div [] [
                 if Option.isSome spinner then Navbar.Item.div [] [ Option.get spinner ]
-                Navbar.Item.div [] [
-                    Switch.switch [
-                        Switch.Checked model.Config.IsDarkMode
-                        Switch.OnChange (fun ev -> ToggleDarkMode (ev.Checked) |> dispatch)
-                        Switch.Id "toggle-dark-mode"
-                        Switch.Color Color.IsInfo
-                    ] [
-                        Fa.i [ Fa.Solid.Moon] []
+                if model.Config.FeatureFlags.DarkMode then
+                    Navbar.Item.div [] [
+                        Switch.switch [
+                            Switch.Checked model.Config.IsDarkMode
+                            Switch.OnChange (fun ev -> ToggleDarkMode (ev.Checked) |> dispatch)
+                            Switch.Id "toggle-dark-mode"
+                            Switch.Color Color.IsInfo
+                        ] [
+                            Fa.i [ Fa.Solid.Moon] []
+                        ]
                     ]
-                ]
                 if model.LoginModel.User.IsSome then
                     Navbar.Item.div [] [
                         Button.button
@@ -211,7 +212,7 @@ module View =
 
     let divider model dispatch =
         if model.IsProjectSectionCollapsed then
-            let dividerContent = 
+            let dividerContent =
                 Button.button [
                     Button.Color Color.IsInfo
                     Button.OnClick (fun _ -> ExpandProjectNav |> dispatch)
@@ -230,7 +231,7 @@ module View =
                     ]
                 ])
         else
-            let dividerContent = 
+            let dividerContent =
                 Button.button [
                     Button.Color Color.IsInfo
                     Button.OnClick (fun _ -> CollapseProjectNav |> dispatch)
@@ -278,13 +279,13 @@ module View =
                         leftPanel model dispatch
                         if dividerOpt.IsSome then Option.get dividerOpt
                         if model.IsProjectSelected then
-                            Column.column [  ] [
+                            Column.column [ ] [
                                 errorMessages model dispatch
                                 inputView model
                                 projectView model
                             ]
                         else
-                            Column.column [] [
+                            Column.column [ ] [
                                 errorMessages model dispatch
                             ]
                     ]
