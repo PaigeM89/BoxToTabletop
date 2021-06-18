@@ -34,7 +34,10 @@ module AlertMessage =
             structure IsDanger "Error" msg
 
     let renderError errorId title message dispatch =
-        Message.message [ Message.Color IsDanger ] [
+        Message.message [ 
+            Message.Color IsDanger
+            Message.Props [ Props.Style [ Props.MarginTop "20px" ] ]
+        ] [
             Message.header [] [
                 str title
                 Delete.delete [ Delete.OnClick (fun _ -> dispatch errorId) ] []
