@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: btt-server
-        image: registry.digitalocean.com/mpaige-container-registry/btt-server:v0.1.6
+        image: registry.digitalocean.com/mpaige-container-registry/btt-server:v0.1.7
         env:
         - name: AUTH0_DOMAIN
           value: "dev-6duts2ta.us.auth0.com"
@@ -39,6 +39,6 @@ spec:
               name: postgres-login-secret
               key: POSTGRES_PASSWORD
         - name: CORS_ORIGINS
-          value: "https://boxtotabletop.com,http://boxtotabletop.com"
+          value: "https://boxtotabletop.com,http://boxtotabletop.com,http://www.boxtotabletop.com,https://www.boxtotabletop.com"
         ports:
         - containerPort: 80

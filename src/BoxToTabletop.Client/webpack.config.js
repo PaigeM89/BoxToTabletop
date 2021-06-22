@@ -32,7 +32,8 @@ var commonPlugins = [
     new HtmlWebpackPlugin({
         filename: 'index.html',
         template: resolve(CONFIG.indexHtmlTemplate)
-    })
+    }),
+    new MiniCssExtractPlugin()
 ];
 
 
@@ -81,7 +82,10 @@ module.exports = {
         },
         {
             test: /\.css$/i,
-            use: ["style-loader", "css-loader"],
+            use: [
+                isProduction ? MiniCssExtractPlugin.loader : 'style-loader',
+                'css-loader'
+            ],
         }
     ]},
     plugins: commonPlugins

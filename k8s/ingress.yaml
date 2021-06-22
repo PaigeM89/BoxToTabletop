@@ -27,7 +27,7 @@ spec:
             name: btt-server-service
             port:
               number: 80
-  - host: "boxtotabletop.com"
+  - host: "www.boxtotabletop.com"
     http:
       paths:
       - path: /

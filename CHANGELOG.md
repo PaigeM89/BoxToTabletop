@@ -6,10 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.0] - 2017-03-17
-First release
-
 ### Added
-- This release already has lots of features
-
-[0.1.0]: https://github.com/user/MyCoolNewApp.git/releases/tag/v0.1.0
+* Log in via Auth0, with option for Google authentication
+* Create & delete Projects
+* Edit project settings
+* Add, Edit, and Delete units
+* Auto-save changes
+* Collapse left nav
+* Collapse add unit menu

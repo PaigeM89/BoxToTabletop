@@ -4,7 +4,7 @@ This project helps you log & track your model backlog, from building through pai
 
 Requirements:
 * Dark mode
-* Save units as one giant data batch
+* Save units as one giant data batch, or save priorities better, or just improve this system SOMEHOW
 * tags for units
     * filter on tags
 * projects & categories
@@ -26,11 +26,10 @@ Requirements:
 * setting to not do individual counts each step / checkboxes for everything
 * export to CSV
 * timelines w/ goals, show progress
-* Fider for feedback (once public)
+* Fider for feedback
+* Mobile layout
 
 minor changes to make:
-* make add unit box thing collapsable
-* make project box thing collapsable
 * Summary
 
 far future:
@@ -151,6 +150,8 @@ Or just run `./tagAndPush.sh <image tag> <version>` in the server/client folders
 Deploy changes via the files in `k8s` with `kubectl apply -f <filename>`. 
 
 Find your running services with `kubectl get pods`.
+
+If you're on Digital Ocean with a Load Balancer, find your ports under `Services` -> `ingress-nginx-controller` (note that the ports are harder to find on the resource page itself, just check the internal endpoints on the table).
 
 #### Resources
 

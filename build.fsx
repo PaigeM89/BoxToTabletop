@@ -478,7 +478,7 @@ let generateAssemblyInfo _ =
           AssemblyInfo.Metadata("GitHash", Git.Information.getCurrentSHA1(null))
         ]
 
-    let getProjectDetails projectPath =
+    let getProjectDetails (projectPath : string) =
         let projectName = IO.Path.GetFileNameWithoutExtension(projectPath)
         (
             projectPath,
@@ -555,24 +555,6 @@ let githubRelease _ =
     |> GitHub.publishDraft
     |> Async.RunSynchronously
 
-// let formatCode _ =
-//     [
-//         srcCodeGlob
-//         testsCodeGlob
-//     ]
-//     |> Seq.collect id
-//     // Ignore AssemblyInfo
-//     |> Seq.filter(fun f -> f.EndsWith("AssemblyInfo.fs") |> not)
-//     |> formatFilesAsync FormatConfig.FormatConfig.Default
-//     |> Async.RunSynchronously
-//     |> Seq.iter(fun result ->
-//         match result with
-//         | Formatted(original, tempfile) ->
-//             tempfile |> Shell.copyFile original
-//             Trace.logfn "Formatted %s" original
-//         | _ -> ()
-//     )
-
 //-----------------------------------------------------------------------------
 // Target Declaration
 //-----------------------------------------------------------------------------
@@ -597,7 +579,7 @@ Target.create "GenerateCoverageReport" generateCoverageReport
 Target.create "WatchApp" watchApp
 Target.create "WatchTests" watchTests
 Target.create "AssemblyInfo" generateAssemblyInfo
-Target.create "CreatePackages" createPackages
+// Target.create "CreatePackages" createPackages
 Target.create "GitRelease" gitRelease
 Target.create "GitHubRelease" githubRelease
 //Target.create "FormatCode" formatCode
@@ -633,7 +615,7 @@ Target.create "Release" ignore
     ==> "FSharpAnalyzers"
     ==> "DotnetTest"
     =?> ("GenerateCoverageReport", not disableCodeCoverage)
-    ==> "CreatePackages"
+    // ==> "CreatePackages"
     ==> "GitRelease"
     ==> "GitHubRelease"
     ==> "Release"
@@ -645,4 +627,4 @@ Target.create "Release" ignore
 // Target Start
 //-----------------------------------------------------------------------------
 
-Target.runOrDefaultWithArguments "CreatePackages"
+Target.runOrDefaultWithArguments "DotnetTest"
