@@ -19,9 +19,9 @@ spec:
         image: registry.digitalocean.com/mpaige-container-registry/btt-server:v0.1.7
         env:
         - name: AUTH0_DOMAIN
-          value: "dev-6duts2ta.us.auth0.com"
+          value: "boxtotabletop.us.auth0.com"
         - name: AUTH0_CLIENTID
-          value: "znj5EvPfoPrzk7B7JF2hGmws8mdXVXqJ"
+          value: "YeHW8gS44T0WLy87LfTlOB1PTT7pLM9k"
         - name: AUTH0_AUDIENCE
           value: "https://api.boxtotabletop.com"
         - name: PG_HOST

@@ -2,14 +2,18 @@
 
 This project helps you log & track your model backlog, from building through painting and being tabletop ready. If you have a pile of boxes or a collection of sprues, this project helps you manage that madness and watch your progress as you work through it.
 
-Requirements:
+TODO:
 * Dark mode
+  * This is part of overall branding & design, looking for a designer
 * Save units as one giant data batch, or save priorities better, or just improve this system SOMEHOW
+  * avro? super condensed info transfer
 * tags for units
     * filter on tags
+* Custom columns
+* Checkboxes instead of numbers
 * projects & categories
     * Tree view with N levels, N options at root
-    * page loader?
+    * page loader? this only seems to cover the full page, i want it on just the main project panel(s)
 * account settings
     * quick view
     * customize auto save timer
@@ -20,10 +24,9 @@ Requirements:
 * sharing links
     * add friends
     * set account private
-* next 10
+* next 10 - a way to group the next 10 things you want to work on, across multiple projects
 * stats
     * by date, editable, with graphs
-* setting to not do individual counts each step / checkboxes for everything
 * export to CSV
 * timelines w/ goals, show progress
 * Fider for feedback
