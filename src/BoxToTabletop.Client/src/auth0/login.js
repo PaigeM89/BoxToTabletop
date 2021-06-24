@@ -28,7 +28,6 @@ const login = async (targetUrl) => {
       options.appState = { targetUrl };
     }
 
-    // todo: try LoginWithPopup
     return await auth0.loginWithRedirect(options);
   } catch (err) {
     console.log("Log in failed", err);
@@ -58,9 +57,9 @@ const handleRedirect = async() => {
 }
 
 const getToken = async(audience) => {
-  const tokenStr = await auth0.getTokenWithPopup({
+  const tokenStr = await auth0.getTokenSilently({
     scope: 'email',
-    audience: audience //'http://localhost:5000'
+    audience: audience
   }, {
     timeoutInSeconds: 90
   });
