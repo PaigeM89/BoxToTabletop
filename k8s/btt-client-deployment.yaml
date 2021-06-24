@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: btt-client
-        image: registry.digitalocean.com/mpaige-container-registry/btt-client:v0.1.5
+        image: registry.digitalocean.com/mpaige-container-registry/btt-client:v0.1.6
         ports:
         - name: http
           containerPort: 80
