@@ -69,6 +69,13 @@ module Repository =
         } |> conn().SelectAsync<Project>
         |> Task.map (List.ofSeq >> List.map (fun x -> x.ToDomainType()))
 
+    let loadProjectsForUser (conn : CreateConn) (userId : string) =
+        select {
+            table "projects"
+            where (eq "owner_id" userId)
+        } |> conn().SelectAsync<Project>
+        |> Task.map (List.ofSeq >> List.map (fun x -> x.ToDomainType())
+        )
     let loadProject (conn : CreateConn) (id : Guid) =
         select {
             table "projects"
@@ -134,7 +141,7 @@ module Repository =
     type ProjectLoader(connCreator : CreateConn) =
         interface ILoadProjects with
             member this.Load id = loadProject connCreator id
-            member this.LoadForUser userId = loadAllProjects connCreator
+            member this.LoadForUser userId = loadProjectsForUser connCreator userId
 
     type ProjectModifier(conn : CreateConn) =
         interface IModifyProjects with
