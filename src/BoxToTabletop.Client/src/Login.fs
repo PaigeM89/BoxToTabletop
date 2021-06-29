@@ -92,6 +92,12 @@ module Login =
       Auth0Config = Auth0ConfigJson.Empty()
     }
 
+    member this.Reset() = {
+      this with
+        JwtToken = None
+        User = None
+    }
+
   [<ImportMember("./auth0/login.js")>]
   let configureClient : (string * string -> Promise<unit>)= jsNative
 
@@ -117,7 +123,6 @@ module Login =
     Cmd.OfPromise.either (Promises.getAuth0Config) config GetAuth0ConfigSuccess GetAuth0ConfigError
 
   let createClient (conf : Auth0ConfigJson) =
-    //let createClient() = configureClient("dev-6duts2ta.us.auth0.com", "znj5EvPfoPrzk7B7JF2hGmws8mdXVXqJ")
     let createClient() = configureClient(conf.Domain, conf.ClientId)
     Cmd.OfPromise.either createClient () CreateClientSuccess CreateClientError
 
@@ -139,7 +144,8 @@ module Login =
     let codeIndex = query.IndexOf("code=")
     let stateIndex = query.IndexOf("state=")
     if codeIndex > 0 && stateIndex > 0 then
-      Cmd.OfPromise.attempt handleRedirect () RedirectException
+      let msgFunc () = CheckIsAuthenticated
+      Cmd.OfPromise.either handleRedirect () msgFunc RedirectException
     else
       printfn "no code & state found, cannot log in user"
       tryLogin model.ClientUrl
@@ -162,11 +168,11 @@ module Login =
       UpdateResponse.withRaised model cmd raised
     | GetAuth0ConfigSuccess (Error e) ->
       printfn "Error getting auth0 config: %A" e
-      let raised = RaiseError "Unable to get Auth0 config."
+      let raised = RaiseError "Unable to contact server." //"Unable to get Auth0 config."
       UpdateResponse.withRaised model Cmd.none raised
     | GetAuth0ConfigError e ->
       printfn "Error getting auth0 config: %A" e
-      let raised = RaiseError "Unable to get Auth0 config."
+      let raised = RaiseError "Unable to contact server." //"Unable to get Auth0 config."
       UpdateResponse.withRaised model Cmd.none raised
     | TryCreateClient ->
       let cmd = createClient model.Auth0Config
@@ -176,7 +182,7 @@ module Login =
       UpdateResponse.basic model cmd
     | CreateClientError exn ->
       printfn "Create client error is %A" exn
-      let raised = RaiseError "Unable to create auth0 client"
+      let raised = RaiseError "Unable to initialize login." // "Unable to create auth0 client"
       UpdateResponse.withRaised model Cmd.none raised
     | TryLogin ->
       let cmd = tryLogin model.ClientUrl
