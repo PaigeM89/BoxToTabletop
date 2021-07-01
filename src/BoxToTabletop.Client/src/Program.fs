@@ -19,8 +19,10 @@ open Thoth.Elmish
 open BoxToTabletop.Client
 open Elmish.React
 
-// This gives weird sass errors for some reason (webpack using sass to load it?)
-// Fable.Core.JsInterop.importAll "../node_modules/bulma-switch/dist/css/bulma-switch.min.css"
+type MobilePage =
+| UnitList
+| ProjectList
+| ProjectSettings
 
 type SpinnerState = {
     Spin : bool
@@ -47,6 +49,11 @@ type Model = {
     
     DragAndDrop : DragAndDropModel
     DraggedUnitId : Guid option
+
+    /// If true, the burger menu is open.
+    /// Only visible on mobile layout.
+    NavbarBurgerIsOpen : bool
+    MobilePage : MobilePage option
 } with
     static member InitWithConfig (config : Config.T) = 
         let dnd = DragAndDropModel.Empty()
@@ -65,6 +72,9 @@ type Model = {
 
             DragAndDrop = dnd
             DraggedUnitId = None
+
+            NavbarBurgerIsOpen = false
+            MobilePage = None
         }
 
     static member Empty() =
@@ -79,6 +89,8 @@ type Model = {
                 ProjectSettingsModel = this.ProjectSettingsModel.SetConfig(this.Config)
                 ProjectsListModel = this.ProjectsListModel.SetConfig(this.Config)
         }
+
+    member this.IsLoggedIn() = this.LoginModel.User.IsSome
 
 let addErrorMessage messageId message model =
     let msgs = model.ErrorMessages |> Map.add messageId message
@@ -113,132 +125,119 @@ type Msg =
 | RemoveErrorMessage of messageId : Guid
 | ToggleDarkMode of mode : bool
 | RaiseToast // raises a toast based on the state of the model
+| NavbarBurgerToggle of isActive : bool
+| ChangeMobilePage of MobilePage option
 
 module View =
     open Fable.React.Props
     open Fable.FontAwesome
     open Extensions.CreativeBulma
 
-    let mapShowSpinner (model : Model) =
-        match model.SpinnerState.Spin with
-        | true ->
-            div [ Class ("block " + Fa.Classes.Size.Fa3x) ] [
-                Fa.i [ Fa.Solid.Spinner; Fa.Spin ] []
-            ] |> Some
-        | false -> None
+    module Components = 
 
-    let tryShowUserInfo (model : Model) =
-        match model.LoginModel.User with
-        | Some user ->
-            let display = Option.defaultValue "Unknown user" user.GivenName
-            Label.label [] [ str ("Welcome, " + display) ]
-        | None ->
-            Label.label [] [ str ("Welcome! Please log in to use the site. ") ]
+        let mapShowSpinner (model : Model) =
+            match model.SpinnerState.Spin with
+            | true ->
+                div [ Class ("block " + Fa.Classes.Size.Fa3x) ] [
+                    Fa.i [ Fa.Solid.Spinner; Fa.Spin ] []
+                ] |> Some
+            | false -> None
 
-    let navbar (model : Model) dispatch =
-        let spinner = mapShowSpinner model
-        let color = Color.IsPrimary // if model.Config.IsDarkMode then Color.IsPrimary else Color.IsPrimary
-        Navbar.navbar [ Navbar.Color color ] [
-            Navbar.Start.div [ ] [
-                Level.level [] [
-                    Level.item [ Level.Item.HasTextCentered ] [
-                        div [ Class ("block " + Fa.Classes.Size.Fa3x) ] [Fa.i [ Fa.Solid.PaintBrush ] []]
-                    ]
-                    Level.item [ Level.Item.HasTextCentered ] [
-                        Heading.h3 [
-                            Heading.CustomClass "pad-left-10"
-                        ] [
-                            str "Box To Tabletop"
+        let tryShowUserInfo (model : Model) =
+            match model.LoginModel.User with
+            | Some user ->
+                let display = Option.defaultValue "Unknown user" user.GivenName
+                Label.label [] [ str ("Welcome, " + display) ]
+            | None ->
+                Label.label [] [ str ("Welcome! Please log in to use the site. ") ]
+
+    module Desktop =
+        open Components
+
+        let navbar (model : Model) dispatch =
+            let spinner = Components.mapShowSpinner model
+            let color = Color.IsPrimary // if model.Config.IsDarkMode then Color.IsPrimary else Color.IsPrimary
+            Navbar.navbar [ Navbar.Color color ] [
+                Navbar.Start.div [ ] [
+                    Level.level [] [
+                        Level.item [ Level.Item.HasTextCentered ] [
+                            div [ Class ("block " + Fa.Classes.Size.Fa3x) ] [Fa.i [ Fa.Solid.PaintBrush ] []]
                         ]
-                    ]
-                ]
-            ]
-            Navbar.Item.div [] [
-                tryShowUserInfo model
-            ]
-            Navbar.End.div [] [
-                if Option.isSome spinner then Navbar.Item.div [] [ Option.get spinner ]
-                if model.Config.FeatureFlags.DarkMode then
-                    Navbar.Item.div [] [
-                        Switch.switch [
-                            Switch.Checked model.Config.IsDarkMode
-                            Switch.OnChange (fun ev -> ToggleDarkMode (ev.Checked) |> dispatch)
-                            Switch.Id "toggle-dark-mode"
-                            Switch.Color Color.IsInfo
-                        ] [
-                            Fa.i [ Fa.Solid.Moon] []
-                        ]
-                    ]
-                if model.LoginModel.User.IsSome then
-                    Navbar.Item.div [] [
-                        Button.button
-                            [ Button.OnClick (fun _ -> Login.Msg.TryLogout |> LoginMsg |> dispatch)]
-                            [ str "Log Out" ]
-                    ]
-                else
-                    Navbar.Item.div [] [
-                        Button.button
-                            [ Button.OnClick (fun _ -> Login.Msg.TryLogin |> LoginMsg |> dispatch)]
-                            [ str "Log In" ]
-                    ]
-                Navbar.Item.div [] [
-                    Control.div [ ] [
-                        Button.a [ Button.Props [ Href "https://github.com/PaigeM89/BoxToTabletop" ] ] [
-                            Icon.icon [] [
-                                Fa.i [ Fa.Brand.Github ] []
+                        Level.item [ Level.Item.HasTextCentered ] [
+                            Heading.h3 [
+                                Heading.CustomClass "pad-left-10"
+                            ] [
+                                str "Box To Tabletop"
                             ]
-                            span [] [ str "Github" ]
+                        ]
+                    ]
+                ]
+                Navbar.Item.div [] [
+                    Components.tryShowUserInfo model
+                ]
+                Navbar.End.div [] [
+                    if Option.isSome spinner then Navbar.Item.div [] [ Option.get spinner ]
+                    if model.Config.FeatureFlags.DarkMode then
+                        Navbar.Item.div [] [
+                            Switch.switch [
+                                Switch.Checked model.Config.IsDarkMode
+                                Switch.OnChange (fun ev -> ToggleDarkMode (ev.Checked) |> dispatch)
+                                Switch.Id "toggle-dark-mode"
+                                Switch.Color Color.IsInfo
+                            ] [
+                                Fa.i [ Fa.Solid.Moon] []
+                            ]
+                        ]
+                    if model.LoginModel.User.IsSome then
+                        Navbar.Item.div [] [
+                            Button.button
+                                [ Button.OnClick (fun _ -> Login.Msg.TryLogout |> LoginMsg |> dispatch)]
+                                [ str "Log Out" ]
+                        ]
+                    else
+                        Navbar.Item.div [] [
+                            Button.button
+                                [ Button.OnClick (fun _ -> Login.Msg.TryLogin |> LoginMsg |> dispatch)]
+                                [ str "Log In" ]
+                        ]
+                    Navbar.Item.div [] [
+                        Control.div [ ] [
+                            Button.a [ Button.Props [ Href "https://github.com/PaigeM89/BoxToTabletop" ] ] [
+                                Icon.icon [] [
+                                    Fa.i [ Fa.Brand.Github ] []
+                                ]
+                                span [] [ str "Github" ]
+                            ]
                         ]
                     ]
                 ]
             ]
-        ]
 
-    let leftPanel (model : Model) dispatch =
-        let projectSettingsView state =
-            ProjectSettings.View.view
-                state.ProjectSettingsModel (fun (x : ProjectSettings.Msg) ->  ProjectSettingsMsg x |> dispatch)
+        let leftPanel (model : Model) dispatch =
+            let projectSettingsView state =
+                ProjectSettings.View.view
+                    state.ProjectSettingsModel (fun (x : ProjectSettings.Msg) ->  ProjectSettingsMsg x |> dispatch)
 
-        if model.IsProjectSectionCollapsed then
-            div [] []
-        else
-            Column.column [ 
-                Column.Width (Screen.All, Column.Is3)
-                Column.Props [ Props.Style [ MarginTop "20px" ] ]
-            ] [
-                ProjectsList.View.view model.ProjectsListModel (fun (x : ProjectsList.Msg) -> ProjectsListMsg x |> dispatch)
-                projectSettingsView model
-            ]
-
-    let divider model dispatch =
-        if model.IsProjectSectionCollapsed then
-            let dividerContent =
-                Button.button [
-                    Button.Color Color.IsInfo
-                    Button.OnClick (fun _ -> ExpandProjectNav |> dispatch)
-                ] [ Fa.i [ Fa.Solid.AngleDoubleRight ] [] ]
-            Some
-                (Column.column [ 
-                    Column.Width (Screen.All, Column.Is1)
-                    Column.Modifiers [Modifier.Display (Screen.All, Display.Flex)]
-                    Column.Props [ Props.Style [ MarginTop "10px" ] ]
+            if model.IsProjectSectionCollapsed then
+                div [] []
+            else
+                Column.column [ 
+                    Column.Width (Screen.All, Column.Is3)
+                    Column.Props [ Props.Style [ MarginTop "20px" ] ]
                 ] [
-                    Extensions.CreativeBulma.Divider.divider [ 
-                        Divider.DividerOption.IsVertical
-                        Divider.DividerOption.Color IsInfo
-                    ] [ 
-                        dividerContent
-                    ]
-                ])
-        else
-            let dividerContent =
-                Button.button [
-                    Button.Color Color.IsInfo
-                    Button.OnClick (fun _ -> CollapseProjectNav |> dispatch)
-                ] [ Fa.i [ Fa.Solid.AngleDoubleLeft ] [] ]
-            Some
-                (Column.column 
-                    [ 
+                    ProjectsList.View.view model.ProjectsListModel (fun (x : ProjectsList.Msg) -> ProjectsListMsg x |> dispatch)
+                    projectSettingsView model
+                ]
+
+        let divider model dispatch =
+            if model.IsProjectSectionCollapsed then
+                let dividerContent =
+                    Button.button [
+                        Button.Color Color.IsInfo
+                        Button.OnClick (fun _ -> ExpandProjectNav |> dispatch)
+                    ] [ Fa.i [ Fa.Solid.AngleDoubleRight ] [] ]
+                Some
+                    (Column.column [ 
                         Column.Width (Screen.All, Column.Is1)
                         Column.Modifiers [Modifier.Display (Screen.All, Display.Flex)]
                         Column.Props [ Props.Style [ MarginTop "10px" ] ]
@@ -250,45 +249,143 @@ module View =
                             dividerContent
                         ]
                     ])
-
-    let errorMessages model dispatch =
-        [
-            for message in model.ErrorMessages do
-                let key = message.Key
-                let value = message.Value
-                match value with
-                | WithTitle (t, m) -> yield AlertMessage.renderError key t m (fun errorId -> RemoveErrorMessage errorId |> dispatch)
-                | JustMessage m -> yield AlertMessage.renderError key "Error" m (fun errorId -> RemoveErrorMessage errorId |> dispatch)
-        ]
-        |> div []
-
-    let view (model : Model) (dispatch : Msg -> unit)  =
-        let projectView state =
-            UnitsList.View.view state.UnitsListModel (fun (x : UnitsList.Msg) ->  UnitsListMsg x |> dispatch)
-
-        let inputView model =
-            AddUnit.View.view model.AddUnitModel (fun (x : AddUnit.Msg) -> AddUnitMsg x |> dispatch)
-
-        let navbar = navbar model dispatch
-        let dividerOpt = divider model dispatch
-        DragDropContext.context model.DragAndDrop (DndMsg >> dispatch) div [] [
-            navbar
-            Container.container [ Container.IsFluid ] [
-                Columns.columns [ Columns.IsGap (Screen.All, Columns.Is1) ]
-                    [
-                        leftPanel model dispatch
-                        if dividerOpt.IsSome then Option.get dividerOpt
-                        if model.IsProjectSelected then
-                            Column.column [ ] [
-                                errorMessages model dispatch
-                                inputView model
-                                projectView model
+            else
+                let dividerContent =
+                    Button.button [
+                        Button.Color Color.IsInfo
+                        Button.OnClick (fun _ -> CollapseProjectNav |> dispatch)
+                    ] [ Fa.i [ Fa.Solid.AngleDoubleLeft ] [] ]
+                Some
+                    (Column.column 
+                        [ 
+                            Column.Width (Screen.All, Column.Is1)
+                            Column.Modifiers [Modifier.Display (Screen.All, Display.Flex)]
+                            Column.Props [ Props.Style [ MarginTop "10px" ] ]
+                        ] [
+                            Extensions.CreativeBulma.Divider.divider [ 
+                                Divider.DividerOption.IsVertical
+                                Divider.DividerOption.Color IsInfo
+                            ] [ 
+                                dividerContent
                             ]
-                        else
-                            Column.column [ ] [
-                                errorMessages model dispatch
-                            ]
+                        ])
+
+        let errorMessages model dispatch =
+            [
+                for message in model.ErrorMessages do
+                    let key = message.Key
+                    let value = message.Value
+                    match value with
+                    | WithTitle (t, m) -> yield AlertMessage.renderError key t m (fun errorId -> RemoveErrorMessage errorId |> dispatch)
+                    | JustMessage m -> yield AlertMessage.renderError key "Error" m (fun errorId -> RemoveErrorMessage errorId |> dispatch)
+            ]
+            |> div []
+
+        let view (model : Model) (dispatch : Msg -> unit)  =
+            let projectView state =
+                UnitsList.View.view state.UnitsListModel (UnitsListMsg >> dispatch)
+
+            let inputView model =
+                AddUnit.View.view model.AddUnitModel (AddUnitMsg >> dispatch)
+
+            let navbar = navbar model dispatch
+            let dividerOpt = divider model dispatch
+            DragDropContext.context model.DragAndDrop (DndMsg >> dispatch) div [] [
+                navbar
+                Container.container [ Container.IsFluid ] [
+                    Columns.columns [ Columns.IsGap (Screen.All, Columns.Is1) ]
+                        [
+                            leftPanel model dispatch
+                            if dividerOpt.IsSome then Option.get dividerOpt
+                            if model.IsProjectSelected then
+                                Column.column [ ] [
+                                    errorMessages model dispatch
+                                    inputView model
+                                    projectView model
+                                ]
+                            else
+                                Column.column [ ] [
+                                    errorMessages model dispatch
+                                ]
+                        ]
+                ]
+            ]
+    
+    module Mobile =
+        
+        let navbar (model : Model) dispatch =
+            let isLoggedIn = model.IsLoggedIn()
+            Navbar.navbar [ 
+                Navbar.Color Color.IsPrimary
+                Navbar.IsFixedBottom
+            ] [
+                Navbar.Brand.div [] [
+                    div [ Class ("block " + Fa.Classes.Size.FaSmall) ] [Fa.i [ Fa.Solid.PaintBrush ] [] ]
+                    Navbar.burger [
+                        Navbar.Burger.OnClick (fun _ -> model.NavbarBurgerIsOpen |> not |> NavbarBurgerToggle |> dispatch)
+                        Navbar.Burger.IsActive model.NavbarBurgerIsOpen
+                    ] [
+                        span [] [] 
+                        span [] []
+                        span [] []
                     ]
+                ]
+                Navbar.menu [ Navbar.Menu.IsActive model.NavbarBurgerIsOpen ] [
+                    Navbar.Dropdown.div [] [
+                        Navbar.Item.a [
+                            Navbar.Item.Props [
+                                Props.OnClick (fun _ -> ChangeMobilePage (Some MobilePage.ProjectList) |> dispatch)
+                            ]
+                        ] [ 
+                            str "Select Project" 
+                        ]
+                        Navbar.Item.a [
+                            Navbar.Item.Props [
+                                Props.OnClick (fun _ -> ChangeMobilePage (Some MobilePage.ProjectSettings) |> dispatch)
+                            ]
+                        ] [ str "Project Settings" ]
+                        if isLoggedIn then
+                            Navbar.Item.a [ 
+                                Navbar.Item.Option.Props [ Props.OnClick (fun _ -> Login.Msg.TryLogout |> LoginMsg |> dispatch) ]
+                            ] [ str "Log Out" ]
+                    ]
+                ]
+            ]
+
+        let view model dispatch =
+            let navbar = navbar model dispatch
+            let isLoggedIn = model.IsLoggedIn()
+            div [
+                Props.Class "has-navbar-fixed-bottom"
+            ] [
+                //str "Welcome to the mobile view! This is where the content lives!"
+                match model.MobilePage with
+                | Some ProjectList ->
+                    ProjectsList.View.view model.ProjectsListModel (ProjectsListMsg >> dispatch)
+                | Some ProjectSettings ->
+                    ProjectSettings.View.view model.ProjectSettingsModel (ProjectSettingsMsg >> dispatch)
+                | Some UnitList ->
+                    UnitsList.View.Mobile.view model.UnitsListModel (UnitsListMsg >> dispatch)
+                | None ->
+                    if not isLoggedIn then
+                        Button.button [ 
+                            Button.OnClick (fun _ -> Login.Msg.TryLogin |> LoginMsg |> dispatch )
+                            Button.CustomClass "centered"
+                        ] [ str "Log In" ]
+                navbar
+            ]
+
+    let view (model : Model) (dispatch : Msg -> unit) =
+        div [] [
+            MediaQuery.mediaQuery [
+                MediaQuery.MaxWidth 768
+            ] [
+                Mobile.view model dispatch
+            ]
+            MediaQuery.mediaQuery [
+                MediaQuery.MinWidth 768
+            ] [
+                Desktop.view model dispatch
             ]
         ]
 
@@ -393,7 +490,12 @@ let handleProjectsListMsg (msg : ProjectsList.Msg) (model : Model) =
             let cmd = ProjectSettings.ExternalSourceMsg.ProjectSelected (project) |> ProjectSettings.External |> ProjectSettingsMsg |> Cmd.ofMsg
             let cmd2 = AddUnit.createProjectChangeMsg project |> AddUnitMsg |> Cmd.ofMsg
             let cmd3 = UnitsList.createProjectChangeMsg project |> UnitsListMsg |> Cmd.ofMsg
-            let model = { model with IsProjectSelected = true }
+            let model = 
+                match model.MobilePage with
+                | Some _ ->
+                    { model with IsProjectSelected = true; MobilePage = Some (UnitList) }
+                | None ->
+                    { model with IsProjectSelected = true }
             model, [ cmd; cmd2; cmd3 ] |> Cmd.batch
         | Some (ProjectsList.TransferUnitTo projectId) ->
             printfn "TODO: RE-IMPLEMENT THIS"
@@ -403,6 +505,10 @@ let handleProjectsListMsg (msg : ProjectsList.Msg) (model : Model) =
             model, Cmd.none
         | Some (ProjectsList.ErrorMessage (title, message)) ->
             let model = addErrorMessage (Guid.NewGuid()) (WithTitle (title, message)) model
+            model, Cmd.none
+        | Some (ProjectsList.UnauthorizedApiCall) ->
+            //we tried to make an API call, but it came back unauthorized - redo login process
+            let model = { model with LoginModel = model.LoginModel.Reset() }
             model, Cmd.none
         | None -> model, Cmd.none
     
@@ -510,6 +616,10 @@ let update (msg : Msg) (model : Model) =
         let themeValue = if mode then "dark" else "light"
         Browser.Dom.document.documentElement.setAttribute("data-theme",themeValue)
         mdl, Cmd.none
+    | NavbarBurgerToggle(isActive) ->
+        { model with NavbarBurgerIsOpen = isActive }, Cmd.none
+    | ChangeMobilePage v ->
+        { model with MobilePage = v; NavbarBurgerIsOpen = false }, Cmd.none
 
 
 
@@ -540,6 +650,7 @@ Program.mkProgram
 // |> Program.withConsoleTrace
 |> Toast.Program.withToast Toast.renderToastWithFulma
 |> Program.withReactBatched "root"
+// |> Program.toNavigable (parsePath routing) urlUpdate
 #if DEBUG
 |> Program.runWith (Some "http://localhost:5000")
 #else

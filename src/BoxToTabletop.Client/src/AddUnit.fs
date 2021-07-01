@@ -151,7 +151,6 @@ module AddUnit =
         let expandedView model dispatch =
             let partial = model.PartialData
             let cs = model.ColumnSettings
-            // printfn "column settings when drawing add unit is %A" cs
             let func (ev : Browser.Types.Event) transform =
                 let c = Parsing.parseIntOrZero ev.Value
                 UpdatePartialData (transform partial c)

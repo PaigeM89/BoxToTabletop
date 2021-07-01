@@ -47,7 +47,7 @@ type RaisedMsg =
 | TransferUnitTo of projectId : Guid
 | DndMsg of DragAndDropMsg
 | ErrorMessage of title: string * message: string
-
+| UnauthorizedApiCall
 
 type Msg =
 | External of ExternalSourceMsg
@@ -60,7 +60,7 @@ type Msg =
 | OnHover of projectId : Guid
 | NewProjectNameUpdate of value : string
 | CreateNewProject
-| SaveProjectSuccess of Project
+| SaveProjectResponse of Result<Project, Thoth.Fetch.FetchError>
 | SaveProjectError of exn
 
 let createProjectDeletedMsg id = ProjectDeleted id |> External
@@ -117,16 +117,17 @@ module View =
                         ] [
                             Input.input [ 
                                 Input.Option.Placeholder "New Project"; 
-                                Input.OnChange (fun ev -> printfn "project name input on change: %A" ev.Value; ev.Value |> NewProjectNameUpdate |> dispatch); 
+                                Input.OnChange (fun ev -> ev.Value |> NewProjectNameUpdate |> dispatch); 
                                 Input.Props [ Props.OnKeyPress(fun k -> detectEnterKey k dispatch) ] ]
                             Button.button [
-                                Button.OnClick (fun _ -> printfn "create new project button on click"; CreateNewProject |> dispatch )
+                                Button.OnClick (fun _ -> CreateNewProject |> dispatch )
                             ] [ Fa.i [ Fa.Solid.Plus ] []  ]
                         ]
                     ]
                 ]
             ]
         ]
+
 
 type UpdateResponse = Core.UpdateResponse<Model, Msg, RaisedMsg>
 let projectListSpinnerId = Guid.Parse("BEE7A043-3F8D-4959-ADB6-6C10706D0E32")
@@ -140,7 +141,7 @@ module ApiCalls =
 
     let saveNewProject (model : Model) project =
         let save = Promises.saveProject model.Config
-        let cmd = Cmd.OfPromise.either save project SaveProjectSuccess SaveProjectError
+        let cmd = Cmd.OfPromise.either save project SaveProjectResponse SaveProjectError
         model, cmd
 
 let handleExternalSourceMsg model msg =
@@ -192,13 +193,34 @@ let update model msg =
         let newProj = { Project.Empty() with Name = model.NewProjectName; Id = Guid.NewGuid() }
         let model, cmd = ApiCalls.saveNewProject model newProj
         UpdateResponse.withSpin model cmd (Core.SpinnerStart projectListSpinnerId)
-    | SaveProjectSuccess proj ->
+    | SaveProjectResponse (Ok proj) ->
         let projects = proj :: model.Projects
         let model = { model with Projects = projects; NewProjectName = ""; SelectedProject = Some proj.Id }
         let raised = RaisedMsg.ProjectSelected proj
         UpdateResponse.create model Cmd.none (Some (Core.SpinnerEnd projectListSpinnerId)) (Some raised)
+    | SaveProjectResponse (Error (Thoth.Fetch.FetchFailed response)) ->
+        if response.Status = 401 then
+            // unauthorized response - redo login
+            let raised = UnauthorizedApiCall
+            let spin = Core.SpinnerEnd projectListSpinnerId
+            UpdateResponse.create model Cmd.none (Some spin) (Some raised)
+        else
+            printfn "Unexpected error saving project: %A" response
+            UpdateResponse.withSpin model Cmd.none (Core.SpinnerEnd projectListSpinnerId)
+    | SaveProjectResponse (Error (Thoth.Fetch.PreparingRequestFailed ex)) ->
+        printfn "Error creating request: %A" ex
+        let raised = ErrorMessage ("Error", "Unable to create request to server.")
+        UpdateResponse.withRaised model Cmd.none raised
+    | SaveProjectResponse (Error (Thoth.Fetch.NetworkError ex)) ->
+        printfn "Network error: %A" ex
+        let raised = ErrorMessage ("Error", "Unable to contact server")
+        UpdateResponse.withRaised model Cmd.none raised
+    | SaveProjectResponse (Error (Thoth.Fetch.DecodingFailed errMsg)) ->
+        printfn "Decoding failed: %A" errMsg
+        let raised = ErrorMessage ("Error", "Unable to decode response from server.")
+        UpdateResponse.withRaised model Cmd.none raised
     | SaveProjectError e ->
-        printfn "Save new project error: %A" e
+        printfn"Save new project error: %A" e
         UpdateResponse.withSpin model Cmd.none (Core.SpinnerEnd projectListSpinnerId)
     | TransferUnit(projectId) ->
         let raised = TransferUnitTo projectId

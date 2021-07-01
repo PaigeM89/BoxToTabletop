@@ -3,6 +3,14 @@
 This project helps you log & track your model backlog, from building through painting and being tabletop ready. If you have a pile of boxes or a collection of sprues, this project helps you manage that madness and watch your progress as you work through it.
 
 TODO:
+* Mobile layout
+  * During this, add the default to switches and the option to configure to #s
+* Summary
+  * By points/power/models
+* Boil up errors to handle appropriately
+  * timed out logins should try to re-log-in, not fail silently
+* Once we parse out user information from the URL, we should clean up the URL
+* Logging in requires presssing the "logiN" button twice on some browsers (first login?) for some reason
 * Dark mode
   * This is part of overall branding & design, looking for a designer
 * Save units as one giant data batch, or save priorities better, or just improve this system SOMEHOW
@@ -30,7 +38,6 @@ TODO:
 * export to CSV
 * timelines w/ goals, show progress
 * Fider for feedback
-* Mobile layout
 
 minor changes to make:
 * Summary

@@ -28,6 +28,8 @@ module UnitsList =
 
   let spinnerId = Guid.Parse("D9D1E6D9-ACB6-4100-9818-E91FA4996839")
 
+  type UnitId = Guid
+
   type AlertMessage =
   | InfoMessage of msg : string
   | ErrorMessage of msg : string
@@ -51,6 +53,13 @@ module UnitsList =
 
     Debouncer : Debouncer.State
     ProjectChangeStatus : ProjectChangeStatus
+
+    /// map of UnitId, flag indicating if that row is expanded
+    /// options not in the map are assumed to not be expanded.
+    ExpandedUnitRows : Map<UnitId, bool>
+
+    /// Map of UnitId, string, where a value here indicates that unit name is being edited
+    EditedUnitNames : Map<UnitId, string>
   } with
     static member Init(config : Config.T, dndModel : DragAndDropModel) = {
       DragAndDrop = dndModel
@@ -64,6 +73,9 @@ module UnitsList =
 
       Debouncer = Debouncer.create()
       ProjectChangeStatus = NoPendingChange
+
+      ExpandedUnitRows = Map.empty
+      EditedUnitNames = Map.empty
     }
 
     member this.SetConfig config = { this with Config = config }
@@ -146,6 +158,12 @@ module UnitsList =
   | DispatchChanges
   | Saving of SaveChangesMsg
   | UnloadCompleted
+  // The following messages are invoked from the mobile view
+  | ExpandUnitRow of Guid
+  | CollapseUnitRow of Guid
+  | StartEditUnitName of UnitId
+  | UpdateUnitName of UnitId * string
+  | CompleteEditUnitName of UnitId
 
   let createAddUnitMsg unit = AddNewUnit unit |> External
   let createProjectChangeMsg project = ProjectChange project |> External
@@ -154,7 +172,7 @@ module UnitsList =
   module View =
     open Fable.FontAwesome
 
-    let dndDispatch dispatch = fun m -> DndMsg m |> dispatch
+    let dndDispatch dispatch = DndMsg >> dispatch
 
     let numericInput inputColor name (dv : int) action =
         Input.number [
@@ -283,6 +301,95 @@ module UnitsList =
             ]
       ]
 
+    module Mobile =
+      open Extensions.CreativeBulma
+
+      let private unitSummary (model : Model) (unit : Types.Unit) =
+        let values = 
+          [
+            string unit.Models
+            if model.ColumnSettings.AssemblyVisible then (string unit.Assembled)
+            if model.ColumnSettings.PrimedVisible then (string unit.Primed)
+            if model.ColumnSettings.PaintedVisible then (string unit.Painted)
+            if model.ColumnSettings.BasedVisible then (string unit.Based)
+          ]
+        String.Join ("/", values)
+
+      let private unit model dispatch index (unit : Types.Unit) =
+        let isExpanded = model.ExpandedUnitRows |> Map.tryFind unit.Id |> Option.defaultValue false
+        let editedName = model.EditedUnitNames |> Map.tryFind unit.Id
+        let unitIdStr = unit.Id |> string
+        let unitName =
+          Level.level [] [
+            Level.item [] [ 
+              h3 [] [ str (unit.Name) ]
+            ]
+          ]
+        let dispatchCollapseChange = fun _ -> if isExpanded then CollapseUnitRow unit.Id |> dispatch else ExpandUnitRow unit.Id |> dispatch
+        let content =
+          div [] [
+            Message.message [] [
+              Message.header  [
+                GenericOption.Props [
+                  Props.OnClick dispatchCollapseChange
+                ]
+              ] [
+                match editedName with
+                | None -> 
+                  yield! [
+                    h3 [] [ str (unit.Name) ]
+                    Button.button [
+                      Button.OnClick (fun _ -> StartEditUnitName unit.Id |> dispatch)
+                      Button.Size Size.IsSmall
+                    ] [ 
+                      Fa.i [ Fa.Solid.Edit; Fa.IconOption.PullLeft; Fa.CustomClass Fa.Classes.Size.FaSmall ] []
+                    ]
+                  ]
+                  Label.label [] [ str (unitSummary model unit) ]
+                | Some value ->
+                  yield! [
+                    Input.input [ 
+                      Input.Value value; 
+                      Input.Id (unitIdStr + "-name-input"); 
+                      Input.OnChange (fun ev -> UpdateUnitName (unit.Id, ev.Value) |> dispatch )
+                      Input.Size Size.IsSmall
+                    ]
+                    Button.button [
+                      Button.Size Size.IsSmall
+                      Button.OnClick (fun _ -> CompleteEditUnitName unit.Id |> dispatch)
+                    ] [
+                      Fa.i [ Fa.Solid.CheckCircle; Fa.IconOption.PullLeft ] []
+                    ]
+                  ]
+                
+                if isExpanded then
+                  Fa.i [ Fa.Solid.MinusCircle; Fa.IconOption.PullRight; Fa.Props [ OnClick dispatchCollapseChange ] ] []
+                else
+                  Fa.i [ Fa.Solid.PlusCircle; Fa.IconOption.PullRight;  Fa.Props [ OnClick dispatchCollapseChange ]] []
+              ]
+              if isExpanded then
+                Message.body [] [
+                  Level.level [] [
+                    Level.item [] [ "Assembled: " + (string unit.Assembled) |> str ]
+                    Level.item [] [ "Primed: " + (string unit.Primed) |> str ]
+                  ]
+                ]
+            ]
+          ]
+        content
+
+      let view (model : Model) dispatch =
+        let units =
+          
+          model.UnitMap
+          |> Map.toList
+          |> List.mapi (fun i (id, u) ->
+            unit model dispatch i u
+          )
+        div [] [
+          yield! units
+        ]
+
   type UpdateResponse = Core.UpdateResponse<Model, Msg, RaisedMsg>
 
   module ApiCalls =
@@ -310,7 +417,7 @@ module UnitsList =
             let promise unitArg = Promises.updateUnit model.Config unitArg
             Cmd.OfPromise.either promise unit UpdateUnitSuccess UpdateUnitFailure
         ]
-      if List.length commands > 0 then
+      if List.isEmpty commands |> not then
         commands |> Cmd.batch
       else
         Cmd.ofMsg NoUnitsToUpdate
@@ -525,4 +632,37 @@ module UnitsList =
         let spin = Core.SpinnerStart spinnerId
         UpdateResponse.withSpin model cmd spin
     | Saving saveMsg -> handleSavingMsg model saveMsg
+    | ExpandUnitRow id ->
+      let expanded = Map.add id true model.ExpandedUnitRows
+      let model = { model with ExpandedUnitRows = expanded }
+      UpdateResponse.basic model Cmd.none
+    | CollapseUnitRow id ->
+      let expanded = Map.remove id model.ExpandedUnitRows
+      let model = { model with ExpandedUnitRows = expanded }
+      UpdateResponse.basic model Cmd.none
+    | StartEditUnitName id ->
+      let unit = model.UnitMap |> Map.tryFind (string id)
+      match unit with
+      | Some unit ->
+        let edited = Map.add id unit.Name model.EditedUnitNames
+        let model = { model with EditedUnitNames = edited }
+        UpdateResponse.basic model Cmd.none
+      | None ->
+        UpdateResponse.basic model Cmd.none
+    | UpdateUnitName (unitId, unitName) ->
+      let edited = Map.add unitId unitName model.EditedUnitNames
+      let model = { model with EditedUnitNames = edited }
+      UpdateResponse.basic model Cmd.none
+    | CompleteEditUnitName unitId ->
+      let unit = model.UnitMap |> Map.tryFind (string unitId)
+      match unit with
+      | Some unit ->
+        let editedName = model.EditedUnitNames |> Map.tryFind unitId |> Option.defaultValue unit.Name
+        let unit = { unit with Name = editedName }
+        let cmd = AddUnitChange unit |> Cmd.ofMsg
+        let edited = model.EditedUnitNames |> Map.remove unitId
+        let model = { model with EditedUnitNames = edited }
+        UpdateResponse.basic model cmd
+      | None ->
+        UpdateResponse.basic model Cmd.none
 

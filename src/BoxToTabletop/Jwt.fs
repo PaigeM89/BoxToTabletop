@@ -26,10 +26,5 @@ module Jwt =
     let handler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler()
     handler.ReadJwtToken(token)
 
-  let printAllClaims (token : JwtSecurityToken) =
-    for claim in token.Claims do
-      printfn "Claim: %A" claim
-
   let getUserId (token : System.IdentityModel.Tokens.Jwt.JwtSecurityToken) =
-    printAllClaims token
     token.Claims |> Seq.tryFind (fun claim -> claim.Type = "sub") |> Option.map (fun claim -> claim.Value)

@@ -49,10 +49,10 @@ module Webhost =
     let configureDependencyInjection (config : ApplicationConfig) (svcs : IServiceCollection) =
         let connFunc = config.PostgresConfig.PostgresConnectionString() |> Repository.createDbConnection
         svcs
-            .AddScoped<ILoadProjects, ProjectLoader>(fun _ -> new ProjectLoader(connFunc) )
-            .AddScoped<IModifyProjects, ProjectModifier>(fun _ -> new ProjectModifier(connFunc) )
-            .AddScoped<ILoadUnits, UnitLoader>(fun _ -> new UnitLoader(connFunc) )
-            .AddScoped<IModifyUnits, UnitModifier>(fun _ -> new UnitModifier(connFunc) )
+            .AddTransient<ILoadProjects, ProjectLoader>(fun _ -> ProjectLoader(connFunc) )
+            .AddTransient<IModifyProjects, ProjectModifier>(fun _ -> ProjectModifier(connFunc) )
+            .AddTransient<ILoadUnits, UnitLoader>(fun _ -> UnitLoader(connFunc) )
+            .AddTransient<IModifyUnits, UnitModifier>(fun _ -> UnitModifier(connFunc) )
             .AddSingleton<ApplicationConfig>(fun _ -> config)
 
     let configureServices (config : ApplicationConfig) (services : IServiceCollection) =

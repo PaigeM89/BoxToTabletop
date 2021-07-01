@@ -267,13 +267,13 @@ module Promises =
         return! Fetch.tryGet(url, decoder = decoder, headers = headers)
     }
 
-    let saveProject (config : Config.T) (project : Project) : Promise<Project> = promise {
+    let saveProject (config : Config.T) (project : Project) = promise {
         let url = ProjectRoutes.POST |> buildRouteSimple config
         let headers = [
             getBearerHeader config
         ]
         let decoder = Types.Project.Decoder
-        return! Fetch.post(url, project, decoder = decoder, headers = headers)
+        return! Fetch.tryPost(url, project, decoder = decoder, headers = headers)
     }
 
     let updateProject (config : Config.T) (project : Project) : Promise<Project> = promise {
@@ -322,3 +322,69 @@ module Promises =
             return Error response.statusCode
     }
 
+// // https://antongorbikov.com/2020/02/10/getting-started-with-fable-routing/
+// module Routing = 
+//     open Fable.Core
+//     open Fable.Core.JsInterop
+//     open Fable.React
+
+//     type BrowserRouterProp =
+//     | ForceRefresh of bool
+
+//     let inline BrowserRouter (props: BrowserRouterProp list) (elements : ReactElement list) =
+//         ofImport "BrowserRouter" "react-router-dom" (keyValueList CaseRules.LowerFirst props) elements
+
+//     module Routing =
+//         type ToObject = {
+//             Pathname: string
+//             Search: string
+//             Hash: string
+//             State: string
+//         }
+
+//         type LinkProps =
+//             | To of U3<string, ToObject, (string -> string)>
+//             | Replace of bool
+
+//         let inline Link (props: LinkProps list) (elems: ReactElement list): ReactElement =
+//             ofImport "Link" "react-router-dom" (keyValueList CaseRules.LowerFirst props) elems
+    
+//     module Route =
+//         type RouteProps =
+//         | Path of string
+
+//         let inline Route (props: RouteProps list) (elems: ReactElement list): ReactElement =
+//             ofImport "Route" "react-router-dom" (keyValueList CaseRules.LowerFirst props) elems
+
+//         let inline Switch (props: unit list) (elems: ReactElement list): ReactElement =
+//             ofImport "Switch" "react-router-dom" (keyValueList CaseRules.LowerFirst props) elems
+
+
+[<RequireQualifiedAccess>]
+module MediaQuery =
+
+    open Fable.React
+    open Fable.React.Props
+    open Fable.Core
+    open Fable.Core.JsInterop
+
+
+    [<StringEnum>]
+    type Orientation = Portrait | Landscape 
+
+    type IMediaQueryProps = 
+    | MaxDeviceWidth of int
+    | MinDeviceWidth of int
+    | MaxWidth of int 
+    | MinWidth of int 
+    | Orientation of Orientation
+    | MinResolution of string 
+    | MaxResolution of string
+    | Query of string
+        interface IHTMLProp
+        
+    let mediaQuery (props: IHTMLProp list) children = 
+        ofImport "default" 
+                 "react-responsive" 
+                 (keyValueList CaseRules.LowerFirst props) 
+                 children
