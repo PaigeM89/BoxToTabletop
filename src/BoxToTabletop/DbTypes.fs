@@ -60,6 +60,7 @@ module DbTypes =
         power_visible : bool
         points_visible : bool
         owner_id : string
+        // todo: remove this; we can track counts on a per-column basis
         use_counts : bool
     } with
         static member FromDomainType (project : Domain.Types.Project) : Project =
