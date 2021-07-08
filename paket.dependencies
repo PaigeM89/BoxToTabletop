@@ -50,6 +50,7 @@ group Client
   nuget Fable.FontAwesome
   nuget Fable.FontAwesome.Free
   nuget Fable.Elmish
+  nuget Fable.Elmish.Browser
   nuget Fable.Elmish.React
   nuget Fulma.Extensions.Wikiki.PageLoader
   nuget Fulma.Extensions.Wikiki.Divider

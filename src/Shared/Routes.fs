@@ -21,9 +21,9 @@ let Auth0Config = Root %% "auth_config"
 
 module ProjectRoutes =
     let Root = Root %% "projects"
-    let GETALL = Root
+    // let GETALL = Root
     let GET() = PrintfFormat<_,_,_,_,_> (Root %% "%O")
-    let POST = Root
+    // let POST = Root
     let PUT() = PrintfFormat<_,_,_,_,_> (Root %% "%O")
     let PUT2 = fun baseUrl (id : Guid) -> baseUrl %% Root %% (sprintf "%O" id)
     let DELETE() = PrintfFormat<_,_,_,_,_> (Root %% "%O")
@@ -31,6 +31,10 @@ module ProjectRoutes =
     module Priorities =
         let PrioritiesRoot = "priorities"
         let PUT() = PrintfFormat<_,_,_,_,_> (Root %% "%O" %% PrioritiesRoot)
+
+    module Columns =
+        let GET() = PrintfFormat<_,_,_,_,_> (Root %% "%O" %% "columns")
+        let PUT() = PrintfFormat<_,_,_,_,_> (Root %% "%O" %% "columns" %% "%O")
 
 module UnitRoutes =
     let Root = Root %% "units"
@@ -43,3 +47,7 @@ module UnitRoutes =
     module Transfer =
         let Root = Root %% "%O/transfer"
         let POST() = PrintfFormat<_,_,_,_,_> Root
+
+    module Columns =
+        let GET() = PrintfFormat<_,_,_,_,_> (Root %% "%O" %% "columns")
+        let PUT() = PrintfFormat<_,_,_,_,_> (Root %% "%O" %% "columns" %% "%O")

@@ -60,6 +60,7 @@ module DbTypes =
         power_visible : bool
         points_visible : bool
         owner_id : string
+        use_counts : bool
     } with
         static member FromDomainType (project : Domain.Types.Project) : Project =
             {
@@ -67,6 +68,7 @@ module DbTypes =
                 name = project.Name
                 is_public = project.IsPublic
                 owner_id = project.OwnerId
+                use_counts = project.ColumnSettings.UseCounts
                 assembled_visible = project.ColumnSettings.AssemblyVisible
                 primed_visible = project.ColumnSettings.PrimedVisible
                 painted_visible = project.ColumnSettings.PaintedVisible
@@ -80,7 +82,9 @@ module DbTypes =
             Name = this.name
             IsPublic = this.is_public
             OwnerId = this.owner_id
+            Columns = []
             ColumnSettings = {
+                UseCounts = this.use_counts
                 AssemblyVisible = this.assembled_visible
                 PrimedVisible = this.primed_visible
                 PaintedVisible = this.painted_visible
@@ -88,7 +92,49 @@ module DbTypes =
                 PowerVisible = this.power_visible
                 PointsVisible = this.points_visible
             }
-            //Category = None
-            // Units = []
         }
 
+    /// Describes a column, which is a field for which a unit can have a value, and that unit<->value relationship is only valid for a given project.
+    type Column = {
+        id : Guid
+        name : string
+        description : string
+        can_switch : bool
+        owner_id : Guid
+    }
+
+    /// Describes the relationship between a specific Project and a specific Column
+    type ProjectColumn = {
+        // id : Guid
+        project_id : Guid
+        column_id : Guid
+        is_visible : bool
+        is_switch : bool
+    } 
+
+    /// Describes the relationship between a specific Unit and a specific Column
+    type UnitColumn = {
+        // id : Guid
+        unit_id : Guid
+        column_id : Guid
+        /// Even if a column is configured to a switch, we track a count.
+        /// If the column is switch on (meaning the user uses a checkbox instead of a number field), we track the max possible value.
+        value : int
+    }
+
+module Projections =
+    open System
+    open BoxToTabletop.Domain
+
+    let createProjectColumn (input: (DbTypes.Column * DbTypes.ProjectColumn) seq) : Types.ProjectColumn seq =
+        input
+        |> Seq.map( fun (col, projCol) ->
+            {
+                ProjectId = projCol.project_id
+                ColumnId = projCol.column_id
+                IsVisible = projCol.is_visible
+                IsSwitch = projCol.is_switch
+                Name = col.name
+                Description = col.description
+            }
+        )

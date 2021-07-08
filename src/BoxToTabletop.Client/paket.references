@@ -11,6 +11,7 @@ Fable.Promise
 Fable.SimpleHttp
 Fable.React
 Fable.Elmish
+Fable.Elmish.Browser
 Fable.Elmish.React
 
 Fulma

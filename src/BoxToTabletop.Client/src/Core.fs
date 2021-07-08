@@ -250,7 +250,7 @@ module Promises =
     }
 
     let loadAllProjects (config : Config.T) : Promise<Project list> = promise {
-        let url = ProjectRoutes.GETALL |> buildStaticRoute config
+        let url = ProjectRoutes.Root |> buildStaticRoute config
         let headers = [
             HttpRequestHeaders.Authorization (getBearer config)
         ]
@@ -267,8 +267,17 @@ module Promises =
         return! Fetch.tryGet(url, decoder = decoder, headers = headers)
     }
 
+    let loadProjectColumns (config : Config.T) (id : Guid) = promise {
+        let url = ProjectRoutes.Columns.GET() |> buildRoute config <| id
+        let headers = [
+            HttpRequestHeaders.Authorization (getBearer config)
+        ]
+        let decoder = Decode.list Types.ProjectColumn.Decoder
+        return! Fetch.tryGet(url, decoder = decoder, headers = headers)
+    }
+
     let saveProject (config : Config.T) (project : Project) = promise {
-        let url = ProjectRoutes.POST |> buildRouteSimple config
+        let url = ProjectRoutes.Root |> buildRouteSimple config
         let headers = [
             getBearerHeader config
         ]

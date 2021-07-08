@@ -302,29 +302,91 @@ module UnitsList =
       ]
 
     module Mobile =
+      open Fulma.Extensions.Wikiki
       open Extensions.CreativeBulma
 
+      type UnitSummaryMember =
+      | Separater
+      | Count of string
+      | Icon of Fa.IconOption
+
       let private unitSummary (model : Model) (unit : Types.Unit) =
-        let values = 
+        let useCounts = model.ColumnSettings.UseCounts
+        let values =
           [
-            string unit.Models
-            if model.ColumnSettings.AssemblyVisible then (string unit.Assembled)
-            if model.ColumnSettings.PrimedVisible then (string unit.Primed)
-            if model.ColumnSettings.PaintedVisible then (string unit.Painted)
-            if model.ColumnSettings.BasedVisible then (string unit.Based)
+            //yield (string unit.Models) |> Count
+            for _, count in Unit.enumerateColumns model.ColumnSettings unit ->
+              if useCounts then
+                [
+                  Separater
+                  (string count) |> Count
+                ]
+              elif count > 0 then
+                [
+                  Separater
+                  Fa.Solid.Check |> Icon
+                ]
+              else
+                [
+                  Separater
+                  Fa.Solid.Times |> Icon
+                ]
+          ] 
+          |> List.concat
+        let elements =
+          values
+          |> List.map (fun x ->
+            match x with
+            | Separater -> "/" |> str
+            | Count x -> (string x) |> str
+            | Icon i -> Fa.i [ i; Fa.Size Fa.FaExtraSmall ] []
+          )
+        div [] ((str (string unit.Models)) :: elements)
+
+          // [
+          //   string unit.Models
+          //   if model.ColumnSettings.AssemblyVisible then (string unit.Assembled)
+          //   if model.ColumnSettings.PrimedVisible then (string unit.Primed)
+          //   if model.ColumnSettings.PaintedVisible then (string unit.Painted)
+          //   if model.ColumnSettings.BasedVisible then (string unit.Based)
+          // ]
+        // String.Join ("/", values)
+
+      let private unitDetails (model : Model) (unit : Types.Unit) =
+        let useCounts = model.ColumnSettings.UseCounts
+        let inputRow (lbl : string) value func =  
+          let id = lbl.Replace(" ", "-").ToLowerInvariant()
+          Level.item [] [
+            Label.label [ Label.Size Size.IsSmall ] [ str lbl ]
+            Input.input [ 
+              Input.OnChange func; Input.Value (string value); Input.Id id 
+              Input.Size Size.IsSmall
+            ]
           ]
-        String.Join ("/", values)
+        let switchRow (lbl : string) value func = 
+          let id = lbl.Replace(" ", "-").ToLowerInvariant()
+          Level.item [] [
+            Switch.switch [
+              Switch.Size Size.IsSmall
+              Switch.Checked value
+              Switch.OnChange func
+              Switch.Id id
+              Switch.Color Color.IsInfo
+            ] [ str lbl ]
+          ]
+        [
+          for name, count in Unit.enumerateColumns model.ColumnSettings unit ->
+            if useCounts then
+              inputRow name count (fun _ -> ())
+            else
+              switchRow name (count > 0) (fun _ -> ())
+        ]
+        
 
       let private unit model dispatch index (unit : Types.Unit) =
         let isExpanded = model.ExpandedUnitRows |> Map.tryFind unit.Id |> Option.defaultValue false
         let editedName = model.EditedUnitNames |> Map.tryFind unit.Id
         let unitIdStr = unit.Id |> string
-        let unitName =
-          Level.level [] [
-            Level.item [] [ 
-              h3 [] [ str (unit.Name) ]
-            ]
-          ]
         let dispatchCollapseChange = fun _ -> if isExpanded then CollapseUnitRow unit.Id |> dispatch else ExpandUnitRow unit.Id |> dispatch
         let content =
           div [] [
@@ -339,13 +401,15 @@ module UnitsList =
                   yield! [
                     h3 [] [ str (unit.Name) ]
                     Button.button [
+                      Button.IsRounded
                       Button.OnClick (fun _ -> StartEditUnitName unit.Id |> dispatch)
                       Button.Size Size.IsSmall
                     ] [ 
                       Fa.i [ Fa.Solid.Edit; Fa.IconOption.PullLeft; Fa.CustomClass Fa.Classes.Size.FaSmall ] []
                     ]
                   ]
-                  Label.label [] [ str (unitSummary model unit) ]
+                  //Label.label [] [ str (unitSummary model unit) ]
+                  unitSummary model unit
                 | Some value ->
                   yield! [
                     Input.input [ 
@@ -355,6 +419,7 @@ module UnitsList =
                       Input.Size Size.IsSmall
                     ]
                     Button.button [
+                      Button.IsRounded
                       Button.Size Size.IsSmall
                       Button.OnClick (fun _ -> CompleteEditUnitName unit.Id |> dispatch)
                     ] [
@@ -370,8 +435,7 @@ module UnitsList =
               if isExpanded then
                 Message.body [] [
                   Level.level [] [
-                    Level.item [] [ "Assembled: " + (string unit.Assembled) |> str ]
-                    Level.item [] [ "Primed: " + (string unit.Primed) |> str ]
+                    yield! unitDetails model unit
                   ]
                 ]
             ]

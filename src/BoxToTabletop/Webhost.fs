@@ -20,6 +20,7 @@ module Webhost =
     open BoxToTabletop
     open BoxToTabletop.Routing
     open BoxToTabletop.Repository
+    open BoxToTabletop.Domain
 
     let configureCors (config : ApplicationConfig) (builder : CorsPolicyBuilder) =
         //let localUrls = [|"http://localhost:8090"; "http://localhost:5000"|]
@@ -49,10 +50,12 @@ module Webhost =
     let configureDependencyInjection (config : ApplicationConfig) (svcs : IServiceCollection) =
         let connFunc = config.PostgresConfig.PostgresConnectionString() |> Repository.createDbConnection
         svcs
-            .AddTransient<ILoadProjects, ProjectLoader>(fun _ -> ProjectLoader(connFunc) )
-            .AddTransient<IModifyProjects, ProjectModifier>(fun _ -> ProjectModifier(connFunc) )
-            .AddTransient<ILoadUnits, UnitLoader>(fun _ -> UnitLoader(connFunc) )
-            .AddTransient<IModifyUnits, UnitModifier>(fun _ -> UnitModifier(connFunc) )
+            .AddScoped<ILoadProjects, ProjectLoader>(fun _ -> ProjectLoader(connFunc) )
+            .AddScoped<IModifyProjects, ProjectModifier>(fun _ -> ProjectModifier(connFunc) )
+            .AddScoped<ILoadUnits, UnitLoader>(fun _ -> UnitLoader(connFunc) )
+            .AddScoped<IModifyUnits, UnitModifier>(fun _ -> UnitModifier(connFunc) )
+            .AddScoped<Project.IProjectDomain, Project.ProjectDomain>()
+            .AddScoped<Unit.IUnitDomain, Unit.UnitDomain>()
             .AddSingleton<ApplicationConfig>(fun _ -> config)
 
     let configureServices (config : ApplicationConfig) (services : IServiceCollection) =

@@ -11,6 +11,8 @@ open Thoth.Json.Net
 
 module Types =
 
+    type UserId = string
+
     type FeatureFlags = {
         DarkMode : bool
         Crusade : bool
@@ -173,6 +175,7 @@ module Types =
             |> List.mapi (fun i x -> { x with UnitPriority = i })
 
     type ColumnSettings = {
+        UseCounts : bool
         AssemblyVisible : bool
         PrimedVisible : bool
         PaintedVisible : bool
@@ -181,6 +184,7 @@ module Types =
         PointsVisible : bool
     } with
         static member Empty() = {
+            UseCounts = false // default to switches/checkboxes
             AssemblyVisible = true
             PrimedVisible = false
             PaintedVisible = true
@@ -209,12 +213,49 @@ module Types =
                 yield {| Name = "Points"; Value = this.PointsVisible; Func = fun newValue -> { this with PointsVisible = newValue } |}
             ]
 
+    type ProjectColumn = {
+        ProjectId : Guid
+        ColumnId : Guid
+        IsVisible : bool
+        IsSwitch : bool
+        Name : string
+        Description : string
+    } with
+        static member Empty() = {
+            ProjectId = Guid.Empty
+            ColumnId = Guid.Empty
+            IsVisible = false
+            IsSwitch = false
+            Name = ""
+            Description = ""
+        }
+
+        static member Decoder : Decoder<ProjectColumn> =
+            Decode.object (fun get -> {
+                ProjectId = get.Required.Field "projectId" Decode.guid
+                ColumnId = get.Required.Field "columnId" Decode.guid
+                IsVisible = get.Required.Field "isVisible" Decode.bool
+                IsSwitch = get.Required.Field "isSwitch" Decode.bool
+                Name = get.Required.Field "name" Decode.string
+                Description = get.Required.Field "description" Decode.string
+            })
+
+        member this.Encode() =
+            Encode.object [
+                "projectId", Encode.guid this.ProjectId
+                "columnId", Encode.guid this.ColumnId
+                "isVisible", Encode.bool this.IsVisible
+                "isSwitch", Encode.bool this.IsSwitch
+                "name", Encode.string this.Name
+                "description", Encode.string this.Description
+            ]
+
     type Project = {
         Id : Guid
         Name : string
         //Category : ProjectCategory option
+        Columns : ProjectColumn list
         ColumnSettings : ColumnSettings
-        // Units : Unit list
         IsPublic : bool
         OwnerId : string
     } with
@@ -222,8 +263,8 @@ module Types =
             Id = Guid.NewGuid()
             Name = "Default Project"
             //Category = None
+            Columns = []
             ColumnSettings = ColumnSettings.Empty()
-            // Units = []
             IsPublic = true
             OwnerId = ""
         }
@@ -234,9 +275,10 @@ module Types =
                     Project.Id = get.Required.Field "id" Decode.guid
                     Name = get.Required.Field "name" Decode.string
                     IsPublic = get.Required.Field "isPublic" Decode.bool
-                    // Units = [] //will be populated in a 2nd call
                     OwnerId = get.Required.Field "ownerId" Decode.string
+                    Columns = []
                     ColumnSettings = {
+                        UseCounts = get.Required.Field "useCounts" Decode.bool
                         AssemblyVisible = get.Required.Field "assemblyVisible" Decode.bool
                         PrimedVisible = get.Required.Field "primedVisible" Decode.bool
                         PaintedVisible = get.Required.Field "paintedVisible" Decode.bool
@@ -256,6 +298,7 @@ module Types =
                 "name", Encode.string project.Name
                 "isPublic", Encode.bool project.IsPublic
                 "ownerId", Encode.string project.OwnerId
+                "useCounts", Encode.bool project.ColumnSettings.UseCounts
                 "assemblyVisible", Encode.bool project.ColumnSettings.AssemblyVisible
                 "primedVisible", Encode.bool project.ColumnSettings.PrimedVisible
                 "paintedVisible", Encode.bool project.ColumnSettings.PaintedVisible
@@ -263,6 +306,9 @@ module Types =
                 "powerVisible", Encode.bool project.ColumnSettings.PowerVisible
                 "pointsVisible", Encode.bool project.ColumnSettings.PointsVisible
             ]
+
+        member this.EncodeColumns() =
+            Encode.seq (this.Columns |> List.map (fun c -> c.Encode()))
 
     module Unit =
         let enumerateColumns (cs : ColumnSettings) (unit : Unit) =

@@ -8,4 +8,15 @@ $purple: #a0357c;
 
 @import "~bulma/bulma";
 @import '~@creativebulma/bulma-divider';
-@import '~@creativebulma/bulma-collapsible';
+
+@media screen and (max-width:748px) {
+  body {
+    font-size: small;
+  }
+  hr, h1, h2, h3, h4, h5, h6 {
+    font-size: small;
+  }
+  .message {
+    font-size: unset;
+  }
+}

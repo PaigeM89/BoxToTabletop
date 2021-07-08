@@ -13,17 +13,20 @@ module ProjectSettings =
 
     type Model = {
         Project : Types.Project option
+        Columns : Types.ProjectColumn list
         DeleteInitiated : bool
         Config : Config.T
     } with
         static member Init(config : Config.T) = {
             Project = None
+            Columns = []
             DeleteInitiated = false
             Config = config
         }
 
         static member InitFromProject config project = {
             Project = Some project
+            Columns = []
             DeleteInitiated = false
             Config = config
         }
@@ -33,6 +36,8 @@ module ProjectSettings =
     module Model =
         let setProject m p =
             { m with Project = Some p }
+
+        let setColumns (m : Model) c = { m with Columns = c }
 
     type RaisedMsg =
     | ProjectDeleted of projectId : Guid
@@ -48,10 +53,13 @@ module ProjectSettings =
     // | MaybeLoadProject of projectId : Guid option
     | ProjectLoaded of Result<Project, Thoth.Fetch.FetchError>
     | ProjectLoadFailed of exn
+    | ColumnsLoaded of Result<ProjectColumn list, Thoth.Fetch.FetchError>
+    | ColumnLoadFailed of exn
     | UpdateProject of project : Project
     | UpdateProjectSuccess of project : Project
     | UpdateProjectFailure of exn
     | UpdatedColumnSettings of ColumnSettings
+    | UpdateProjectColumn of ProjectColumn
     | DeleteInitiated
     | DeleteConfirmed
     | DeleteCanceled
@@ -95,24 +103,32 @@ module ProjectSettings =
                 ]
             ]
 
-        let checkBoxFor cbName isChecked  oc =
+        let checkBoxFor (cbName : string) isChecked oc =
+            let cbId = cbName.Replace(" ", "-").ToLowerInvariant()
             Panel.Block.div [] [
                 Switch.switch [
                     Switch.Checked isChecked
                     Switch.OnChange oc
-                    Switch.Id (cbName + "-checkbox")
+                    Switch.Id (cbId + "-checkbox")
                     Switch.Color Color.IsInfo
                 ] [ str cbName ]
             ]
 
-        let createCheckboxes (projOpt : Project option) dispatch =
-            match projOpt with
-            | Some cs ->
-                [
-                    for col in cs.ColumnSettings.EnumerateWithTransformer() ->
-                        checkBoxFor col.Name col.Value (fun ev -> col.Func ev.Checked |> UpdatedColumnSettings |> dispatch)
-                ]
-            | None -> []
+        // (projOpt : Project option)
+        let createCheckboxes (columns : ProjectColumn list) dispatch =
+            let updateVisible col toggle = { col with IsVisible = toggle }
+            [
+                for col in columns ->
+                    checkBoxFor col.Name col.IsVisible (fun ev -> ev.Checked |> updateVisible col |> UpdateProjectColumn |> dispatch)
+            ]
+            // match projOpt with
+            // | Some cs ->
+            //     [
+            //         yield checkBoxFor "Use Counts" cs.ColumnSettings.UseCounts (fun ev -> { cs.ColumnSettings with UseCounts = ev.Checked } |> UpdatedColumnSettings |> dispatch)
+            //         for col in cs.ColumnSettings.EnumerateWithTransformer() ->
+            //             checkBoxFor col.Name col.Value (fun ev -> col.Func ev.Checked |> UpdatedColumnSettings |> dispatch)
+            //     ]
+            // | None -> []
 
         let view (model : Model) dispatch =
             let nameChangeFunc (ev : Event) =
@@ -120,7 +136,6 @@ module ProjectSettings =
                 | Some proj ->
                     { proj with Name = ev.Value } |> UpdateProject
                 | None ->
-                    //todo: maybe don't bother even rendering this if project is missing?
                     { Types.Project.Empty() with Name = ev.Value } |> UpdateProject
 
             if model.Project.IsNone then
@@ -135,10 +150,10 @@ module ProjectSettings =
                             match model.Project with
                             | Some p -> Input.ValueOrDefault p.Name
                             | None -> Input.Placeholder "Project Name"
-                            Input.OnChange (fun ev -> nameChangeFunc ev |> dispatch)
+                            Input.OnChange (nameChangeFunc >> dispatch)
                         ]
                     ]
-                    yield! createCheckboxes model.Project dispatch
+                    yield! createCheckboxes model.Columns dispatch
                     Panel.Block.div [] [
                         Button.button [ 
                             Button.IsFullWidth
@@ -161,6 +176,11 @@ module ProjectSettings =
         let loadProject (model : Model) (id : Guid) =
             let loadFunc i = Promises.loadProject model.Config i
             let cmd = Cmd.OfPromise.either loadFunc id ProjectLoaded ProjectLoadFailed
+            model, cmd
+
+        let loadColumns (model : Model) (id : Guid) =
+            let loadFunc i = Promises.loadProjectColumns model.Config i
+            let cmd = Cmd.OfPromise.either loadFunc id ColumnsLoaded ColumnLoadFailed
             model, cmd
 
         let updateProject (model : Model) (project : Types.Project) =
@@ -186,7 +206,8 @@ module ProjectSettings =
         match msg with
         | ProjectSelected project ->
             let mdl = { model with Project = Some project }
-            UpdateResponse.basic mdl Cmd.none
+            let _, cmd = ApiCalls.loadColumns model project.Id
+            UpdateResponse.basic mdl cmd
 
     let update (model : Model) (msg : Msg) =
         match msg with
@@ -194,12 +215,25 @@ module ProjectSettings =
             handleExternalSourceMsg model ext
         | ProjectLoaded (Ok proj) ->
             let mdl = Model.setProject model proj
-            UpdateResponse.withSpin mdl Cmd.none (Core.SpinnerEnd projectSettingsSpinnerId)
+            // load the columns for the project after loading the project
+            printfn "loading columns"
+            let _, cmd = ApiCalls.loadColumns model proj.Id
+            UpdateResponse.withSpin mdl cmd (Core.SpinnerEnd projectSettingsSpinnerId)
         | ProjectLoaded (Error e) ->
             printfn "%A" e
             UpdateResponse.withSpin model Cmd.none (Core.SpinnerEnd projectSettingsSpinnerId)
         | ProjectLoadFailed e ->
             printfn "%A" e
+            UpdateResponse.withSpin model Cmd.none (Core.SpinnerEnd projectSettingsSpinnerId)
+        | ColumnsLoaded (Ok columns) ->
+            printfn "Successfully loaded columns: %A" columns
+            let model = Model.setColumns model columns
+            UpdateResponse.withSpin model Cmd.none (Core.SpinnerEnd projectSettingsSpinnerId)
+        | ColumnsLoaded (Error e) -> 
+            printfn "Thoth error loading columns: %A" e
+            UpdateResponse.withSpin model Cmd.none (Core.SpinnerEnd projectSettingsSpinnerId)
+        | ColumnLoadFailed e ->
+            printfn "Error loading columns: %A" e
             UpdateResponse.withSpin model Cmd.none (Core.SpinnerEnd projectSettingsSpinnerId)
         | UpdateProject project ->
             let mdl, cmd = ApiCalls.updateProject model project
@@ -237,3 +271,6 @@ module ProjectSettings =
             printfn "Error deleting project: %A" e
             let mdl = { model with DeleteInitiated = false }
             UpdateResponse.withSpin mdl Cmd.none (Core.SpinnerEnd projectSettingsSpinnerId)
+        | UpdateProjectColumn(_) -> 
+            // todo: raise events, save updates.
+            UpdateResponse.basic model Cmd.none

@@ -5,23 +5,36 @@ This project helps you log & track your model backlog, from building through pai
 TODO:
 * Mobile layout
   * During this, add the default to switches and the option to configure to #s
+  * show error messages appropriately
+  * resize toast
+  * work on data flow - should select a project immediately, or take you to projects list, no blank page
+  * work on visible options - should not let you view settings if you do not have an active project
+    * should also let you see unit list without going through "select project"
 * Summary
   * By points/power/models
 * Boil up errors to handle appropriately
   * timed out logins should try to re-log-in, not fail silently
-* Once we parse out user information from the URL, we should clean up the URL
-* Logging in requires presssing the "logiN" button twice on some browsers (first login?) for some reason
+* Add `?` tooltips
+  * Don't use hover, not mobile friendly
+* fix drag & drop to move units
+  * add an Action menu to units to handle moving, deletion for mobile
 * Dark mode
   * This is part of overall branding & design, looking for a designer
 * Save units as one giant data batch, or save priorities better, or just improve this system SOMEHOW
   * avro? super condensed info transfer
+  * Drop the `unit priorities` table if we're not using it.
 * tags for units
     * filter on tags
+* Release process in `build.fsx` should at least update release notes & create github release
+  * There should be a link on the site for current version(s) & link to release notes
+  * This project should really use a single condensed version, I think, though separate docker images maybe makes that not a good idea
 * Custom columns
-* Checkboxes instead of numbers
 * projects & categories
     * Tree view with N levels, N options at root
     * page loader? this only seems to cover the full page, i want it on just the main project panel(s)
+* Mark some things as currently in progress
+* Move all domain mapping out of the repository
+  * Create separate Domain layer to handle 80% of what the endpoints are handling
 * account settings
     * quick view
     * customize auto save timer

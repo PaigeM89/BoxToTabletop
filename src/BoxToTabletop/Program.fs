@@ -79,7 +79,7 @@ module Main =
          LoggerConfiguration()
             .MinimumLevel.Verbose()
             .Enrich.FromLogContext()
-            .Enrich.With(new ThreadIdEnricher())
+            .Enrich.With(ThreadIdEnricher())
             .WriteTo.File("log.txt",
               outputTemplate = "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:W3}] ({ThreadId}) {Message}{NewLine}{Exception}"
             )
