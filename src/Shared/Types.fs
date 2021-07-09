@@ -220,6 +220,7 @@ module Types =
         IsSwitch : bool
         Name : string
         Description : string
+        SortOrder : int
     } with
         static member Empty() = {
             ProjectId = Guid.Empty
@@ -228,6 +229,7 @@ module Types =
             IsSwitch = false
             Name = ""
             Description = ""
+            SortOrder = 0
         }
 
         static member Decoder : Decoder<ProjectColumn> =
@@ -238,6 +240,7 @@ module Types =
                 IsSwitch = get.Required.Field "isSwitch" Decode.bool
                 Name = get.Required.Field "name" Decode.string
                 Description = get.Required.Field "description" Decode.string
+                SortOrder = get.Required.Field "sortOrder" Decode.int
             })
 
         member this.Encode() =
@@ -248,6 +251,7 @@ module Types =
                 "isSwitch", Encode.bool this.IsSwitch
                 "name", Encode.string this.Name
                 "description", Encode.string this.Description
+                "sortOrder", Encode.int this.SortOrder
             ]
 
     type Project = {

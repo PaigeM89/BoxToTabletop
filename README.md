@@ -10,6 +10,9 @@ TODO:
   * work on data flow - should select a project immediately, or take you to projects list, no blank page
   * work on visible options - should not let you view settings if you do not have an active project
     * should also let you see unit list without going through "select project"
+* Custom columns
+  * Actual custom stuff is a step 2 for later, but for now all the infrastructure
+      needs to be set up for database-driven columns
 * Summary
   * By points/power/models
 * Boil up errors to handle appropriately
@@ -28,7 +31,6 @@ TODO:
 * Release process in `build.fsx` should at least update release notes & create github release
   * There should be a link on the site for current version(s) & link to release notes
   * This project should really use a single condensed version, I think, though separate docker images maybe makes that not a good idea
-* Custom columns
 * projects & categories
     * Tree view with N levels, N options at root
     * page loader? this only seems to cover the full page, i want it on just the main project panel(s)

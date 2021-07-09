@@ -4,11 +4,16 @@ open System
 open System.Threading
 open System.Threading.Tasks
 open BoxToTabletop
+open BoxToTabletop.Domain.Types
 open BoxToTabletop.Repository
 open FsToolkit.ErrorHandling
 open FSharp.Control.Tasks.Affine
+open BoxToTabletop.Logging
+open BoxToTabletop.LogHelpers.Operators
 
 module Project =
+
+  let rec logger = LogProvider.getLoggerByQuotation <@ logger @>
 
   let getAllProjectsForUser (loader : ILoadProjects) (userId : string) = task {
     let! projects = loader.LoadForUser userId
@@ -17,6 +22,7 @@ module Project =
 
   let loadProject (loader : ILoadProjects) (projectId : Guid) (userId : string) = task {
     // todo: For sharing, this should not match owner Id, since the viewer won't own the project
+    // todo: this probably doesn't actually need to load the columns
     let! project = loader.Load projectId
     match project with
     | Some proj when proj.owner_id = userId ->
@@ -52,11 +58,28 @@ module Project =
       return None
   }
 
+  let saveProjectColumn (saver : IModifyProjects) (loader: ILoadProjects) (column : ProjectColumn) = task {
+    let! existing = loader.LoadColumn column.ColumnId column.ProjectId
+    !! "Saving column {col}, with existing value {ex}"
+    >>!+ ("col", column)
+    >>!+ ("ex", existing)
+    |> logger.info
+    match existing with
+    | Some _ ->
+      let! rows = DbTypes.ProjectColumn.FromDomainType column |> saver.UpdateColumn
+      return Some(rows, column)
+    | None ->
+      let! rows = DbTypes.ProjectColumn.FromDomainType column |> saver.SaveNewColumn
+      return Some(rows, column)
+  }
+
   type IProjectDomain =
     abstract member GetAllProjectsForUser : Types.UserId -> Task<List<Types.Project>>
     abstract member LoadProject : Types.UserId -> Guid -> Task<Types.Project option>
     abstract member SaveNewProject : Types.UserId -> Types.Project -> Task<Option<int * Types.Project>>
     abstract member UpdateProject : Types.UserId -> Types.Project -> Task<Option<bool * Types.Project>>
+
+    abstract member SaveProjectColumn : Types.ProjectColumn -> Task<Option<int * Types.ProjectColumn>>
 
   type ProjectDomain(saver : IModifyProjects, loader : ILoadProjects) =
     interface IProjectDomain with
@@ -64,6 +87,7 @@ module Project =
       member this.LoadProject userId projectId = loadProject loader projectId userId
       member this.SaveNewProject userId project = saveNewProject saver loader userId project
       member this.UpdateProject userId project = updateProject saver loader userId project
+      member this.SaveProjectColumn column = saveProjectColumn saver loader column
 
 module Unit =
   open System

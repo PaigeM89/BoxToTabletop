@@ -111,7 +111,16 @@ module DbTypes =
         column_id : Guid
         is_visible : bool
         is_switch : bool
-    } 
+        sort_order : int
+    } with
+        static member FromDomainType (pc : Domain.Types.ProjectColumn) =
+            {
+                project_id = pc.ProjectId
+                column_id = pc.ColumnId
+                is_visible = pc.IsVisible
+                is_switch = pc.IsSwitch
+                sort_order = pc.SortOrder
+            }
 
     /// Describes the relationship between a specific Unit and a specific Column
     type UnitColumn = {
@@ -137,5 +146,6 @@ module Projections =
                 IsSwitch = projCol.is_switch
                 Name = col.name
                 Description = col.description
+                SortOrder = projCol.sort_order
             }
         )

@@ -39,6 +39,12 @@ module ProjectSettings =
 
         let setColumns (m : Model) c = { m with Columns = c }
 
+        let replaceColumn (m : Model) (c : ProjectColumn) =
+            let columns =
+                m.Columns
+                |> List.filter( fun x -> x.ColumnId <> c.ColumnId)
+            { m with Columns = c :: columns }
+
     type RaisedMsg =
     | ProjectDeleted of projectId : Guid
     | ProjectLoaded of project : Project
@@ -60,6 +66,8 @@ module ProjectSettings =
     | UpdateProjectFailure of exn
     | UpdatedColumnSettings of ColumnSettings
     | UpdateProjectColumn of ProjectColumn
+    | UpdateProjectColumnSuccess of col : ProjectColumn
+    | UpdateProjectColumnFailure of exn
     | DeleteInitiated
     | DeleteConfirmed
     | DeleteCanceled
@@ -91,7 +99,7 @@ module ProjectSettings =
                             Button.Color IsDanger 
                             Button.OnClick (fun _ -> DeleteConfirmed |> dispatch)
                         ] [
-                            str "Yes, I want to delete"
+                            str "Yes, I want to delete this project."
                         ]
                         Button.button [ 
                             Button.Color IsPrimary 
@@ -117,6 +125,7 @@ module ProjectSettings =
         // (projOpt : Project option)
         let createCheckboxes (columns : ProjectColumn list) dispatch =
             let updateVisible col toggle = { col with IsVisible = toggle }
+            let columns = columns |> List.sortBy (fun c -> c.SortOrder)
             [
                 for col in columns ->
                     checkBoxFor col.Name col.IsVisible (fun ev -> ev.Checked |> updateVisible col |> UpdateProjectColumn |> dispatch)
@@ -202,6 +211,11 @@ module ProjectSettings =
                 printfn "Received column settings update of %A when there is no project loaded" cs
                 model, Cmd.none
 
+        let tryUpdateColumn (model : Model) (col : Types.ProjectColumn) =
+            let updateFunc c = Promises.updateProjectColumn model.Config c
+            let cmd = Cmd.OfPromise.either updateFunc col UpdateProjectColumnSuccess UpdateProjectColumnFailure
+            model, cmd
+
     let handleExternalSourceMsg model (msg : ExternalSourceMsg) =
         match msg with
         | ProjectSelected project ->
@@ -271,6 +285,13 @@ module ProjectSettings =
             printfn "Error deleting project: %A" e
             let mdl = { model with DeleteInitiated = false }
             UpdateResponse.withSpin mdl Cmd.none (Core.SpinnerEnd projectSettingsSpinnerId)
-        | UpdateProjectColumn(_) -> 
+        | UpdateProjectColumn col -> 
             // todo: raise events, save updates.
+            let model, cmd = ApiCalls.tryUpdateColumn model col
+            UpdateResponse.basic model cmd
+        | UpdateProjectColumnSuccess(col) ->
+            let model = Model.replaceColumn model col
+            UpdateResponse.basic model Cmd.none
+        | UpdateProjectColumnFailure e->
+            printfn "Error updating column: %A" e
             UpdateResponse.basic model Cmd.none

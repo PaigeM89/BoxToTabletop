@@ -77,7 +77,6 @@ module Repository =
                 where (eq "owner_id" userId)
             } |> conn().SelectAsync<Project>
             |> Task.map (List.ofSeq)
-            //|> Task.map (List.ofSeq >> List.map (fun x -> x.ToDomainType())
 
         let loadProject (conn : CreateConn) (id : Guid) =
             select {
@@ -85,7 +84,7 @@ module Repository =
                 where (eq "id" id)
                 take 1
             } |> conn().SelectAsync<Project>
-            |> Task.map (List.ofSeq >> List.tryHead) //>> List.map (fun x -> x.ToDomainType()) 
+            |> Task.map (List.ofSeq >> List.tryHead)
 
         let insertProject (conn : CreateConn) (project : Project) =
             insert {
@@ -122,11 +121,12 @@ module Repository =
                 leftJoin "project_columns" "column_id" "columns.id"
                 where (eq "project_columns.project_id" projectId)
             } |> conn().SelectAsync<Column, ProjectColumn>
-            // select {
-            //     table "project_columns"
-            //     innerJoin "columns" "id" "project_columns.column_id"
-            //     where (eq "project_id" projectId)
-            // } |> conn().SelectAsync<Column, ProjectColumn>
+
+        let load (conn : CreateConn) (columnId : Guid) (projectId : Guid) =
+            select {
+                table "project_columns"
+                where (eq "column_id" columnId + eq "project_id" projectId)
+            } |> conn().SelectAsync<ProjectColumn> |> Task.map (Seq.tryHead)
 
         let insertProjectColumn (conn : CreateConn) (cr : DbTypes.ProjectColumn) =
             insert {
@@ -139,8 +139,7 @@ module Repository =
             update {
                 table "project_columns"
                 set pc
-                where (eq "project_id" pc.project_id)
-                where (eq "column_id" pc.column_id)
+                where (eq "project_id" pc.project_id + eq "column_id" pc.column_id)
             } |> conn().UpdateAsync
 
         let deleteProjectColumn (conn : CreateConn) (projectId : Guid) (columnId : Guid) =
@@ -190,13 +189,14 @@ module Repository =
         abstract member Load : Guid -> Task<DbTypes.Project option>
         abstract member LoadForUser : string -> Task<DbTypes.Project list>
         abstract member LoadColumnsForProject : Guid -> Task<(DbTypes.Column * DbTypes.ProjectColumn) seq>
-        abstract member SaveNewColumn : DbTypes.ProjectColumn -> Task<int>
-        abstract member UpdateColumn : DbTypes.ProjectColumn -> Task<int>
+        abstract member LoadColumn : Guid -> Guid -> Task<DbTypes.ProjectColumn option>
 
     type IModifyProjects =
         abstract member Save : Project -> Task<int>
         abstract member Update : Project -> Task<unit>
         abstract member Delete: Guid -> Task<unit>
+        abstract member SaveNewColumn : DbTypes.ProjectColumn -> Task<int>
+        abstract member UpdateColumn : DbTypes.ProjectColumn -> Task<int>
 
     type ILoadUnits =
         abstract member Load : Guid -> Task<Unit option>
@@ -218,14 +218,15 @@ module Repository =
             member this.Load id = Projects.loadProject connCreator id
             member this.LoadForUser userId = Projects.loadProjectsForUser connCreator userId
             member this.LoadColumnsForProject projectId = ProjectColumns.loadAllForProject connCreator projectId
-            member this.SaveNewColumn col = ProjectColumns.insertProjectColumn connCreator col
-            member this.UpdateColumn col = ProjectColumns.updateProjectColumn connCreator col
+            member this.LoadColumn columnId projectId = ProjectColumns.load connCreator columnId projectId
 
     type ProjectModifier(conn : CreateConn) =
         interface IModifyProjects with
             member this.Save project = Projects.insertProject conn project
             member this.Update project = Projects.updateProject conn project |> Task.map ignore
             member this.Delete id = Projects.deleteProject conn id |> Task.map ignore
+            member this.SaveNewColumn col = ProjectColumns.insertProjectColumn conn col
+            member this.UpdateColumn col = ProjectColumns.updateProjectColumn conn col
 
     type UnitLoader(conn : CreateConn) =
         interface ILoadUnits with

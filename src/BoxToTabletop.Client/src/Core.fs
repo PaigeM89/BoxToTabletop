@@ -300,6 +300,15 @@ module Promises =
         return! Fetch.delete(url, headers = headers)
     }
 
+    let updateProjectColumn (config : Config.T) (column : ProjectColumn) : Promise<ProjectColumn> = promise {
+        let url = buildRoute2 config (ProjectRoutes.Columns.PUT()) (column.ProjectId, column.ColumnId)
+        let headers = [
+            HttpRequestHeaders.Authorization (getBearer config)
+        ]
+        let decoder = Types.ProjectColumn.Decoder
+        return! Fetch.put(url, column, decoder = decoder, headers = headers)
+    }
+
     let updateUnitPriorities (config : Config.T) (projId : Guid) (updates : UnitPriority list) : Promise<Result<int, FetchError>> = promise {
         let url = ProjectRoutes.Priorities.PUT() |> buildRoute config <| projId
         let headers = [
