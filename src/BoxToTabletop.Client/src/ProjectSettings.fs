@@ -48,11 +48,11 @@ module ProjectSettings =
     type RaisedMsg =
     | ProjectDeleted of projectId : Guid
     | ProjectLoaded of project : Project
-    | UpdatedColumnSettings of settings : ColumnSettings
+    // | UpdatedColumnSettings of settings : ColumnSettings
+    | UpdatedProjectColumn of ProjectColumn
 
     type ExternalSourceMsg =
     | ProjectSelected of project : Project
-        //projectId : Guid
 
     type Msg =
     | External of ExternalSourceMsg
@@ -64,7 +64,7 @@ module ProjectSettings =
     | UpdateProject of project : Project
     | UpdateProjectSuccess of project : Project
     | UpdateProjectFailure of exn
-    | UpdatedColumnSettings of ColumnSettings
+    //| UpdatedColumnSettings of ColumnSettings
     | UpdateProjectColumn of ProjectColumn
     | UpdateProjectColumnSuccess of col : ProjectColumn
     | UpdateProjectColumnFailure of exn
@@ -111,24 +111,38 @@ module ProjectSettings =
                 ]
             ]
 
-        let checkBoxFor (cbName : string) isChecked oc =
+        let checkBoxFor (cbName : string) isVisible onVisibleChange isSwitch onSwitchChange =
             let cbId = cbName.Replace(" ", "-").ToLowerInvariant()
             Panel.Block.div [] [
+                Label.label [] [ str cbName ]
                 Switch.switch [
-                    Switch.Checked isChecked
-                    Switch.OnChange oc
-                    Switch.Id (cbId + "-checkbox")
+                    Switch.Checked isVisible
+                    Switch.OnChange onVisibleChange
+                    Switch.Id (cbId + "-visible-checkbox")
                     Switch.Color Color.IsInfo
-                ] [ str cbName ]
+                ] [ str "Visible" ]
+                if isVisible then
+                    Switch.switch [
+                        Switch.Checked (not isSwitch)
+                        Switch.OnChange onSwitchChange
+                        Switch.Id (cbId + "-switch-checkbox")
+                        Switch.Color Color.IsInfo
+                    ] [ str "Use Counts"]
             ]
 
         // (projOpt : Project option)
         let createCheckboxes (columns : ProjectColumn list) dispatch =
             let updateVisible col toggle = { col with IsVisible = toggle }
+            let updateSwitch col toggle = { col with IsSwitch = toggle }
             let columns = columns |> List.sortBy (fun c -> c.SortOrder)
             [
                 for col in columns ->
-                    checkBoxFor col.Name col.IsVisible (fun ev -> ev.Checked |> updateVisible col |> UpdateProjectColumn |> dispatch)
+                    checkBoxFor
+                        col.Name
+                        col.IsVisible
+                        (fun ev -> ev.Checked |> updateVisible col |> UpdateProjectColumn |> dispatch)
+                        col.IsSwitch
+                        (fun ev -> ev.Checked |> updateSwitch col |> UpdateProjectColumn |> dispatch)
             ]
             // match projOpt with
             // | Some cs ->
@@ -253,15 +267,15 @@ module ProjectSettings =
             let mdl, cmd = ApiCalls.updateProject model project
             UpdateResponse.withSpin mdl cmd (Core.SpinnerStart projectSettingsSpinnerId)
         | UpdateProjectSuccess project -> 
-            let raised = RaisedMsg.UpdatedColumnSettings project.ColumnSettings
+            //let raised = RaisedMsg.UpdatedColumnSettings project.ColumnSettings
             let spin = Core.SpinnerEnd projectSettingsSpinnerId
-            UpdateResponse.create model Cmd.none (Some spin) (Some raised)
+            UpdateResponse.withSpin model Cmd.none spin
         | UpdateProjectFailure exn ->
             printfn "%A" exn
             UpdateResponse.withSpin model Cmd.none (Core.SpinnerEnd projectSettingsSpinnerId)
-        | UpdatedColumnSettings cs ->
-            let mdl, cmd = ApiCalls.tryUpdateColumnSettings model cs
-            UpdateResponse.withSpin mdl cmd (Core.SpinnerStart projectSettingsSpinnerId)
+        // | UpdatedColumnSettings cs ->
+        //     let mdl, cmd = ApiCalls.tryUpdateColumnSettings model cs
+        //     UpdateResponse.withSpin mdl cmd (Core.SpinnerStart projectSettingsSpinnerId)
         | DeleteInitiated ->
             let mdl = {model with DeleteInitiated = true}
             UpdateResponse.basic mdl Cmd.none
@@ -291,7 +305,8 @@ module ProjectSettings =
             UpdateResponse.basic model cmd
         | UpdateProjectColumnSuccess(col) ->
             let model = Model.replaceColumn model col
-            UpdateResponse.basic model Cmd.none
+            let raised = UpdatedProjectColumn col
+            UpdateResponse.withRaised model Cmd.none raised
         | UpdateProjectColumnFailure e->
             printfn "Error updating column: %A" e
             UpdateResponse.basic model Cmd.none

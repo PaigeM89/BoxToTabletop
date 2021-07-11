@@ -397,7 +397,7 @@ let handleProjectSettingsMsg (msg : ProjectSettings.Msg) (model : Model) =
         | Some (SpinnerStart sourceId) -> addSpinStart sourceId model
         | Some (SpinnerEnd sourceId) -> removeSpin sourceId model
         | None -> model
-    
+
     let mdl, cmd = 
         match updateResponse.raised with
         | Some (ProjectSettings.RaisedMsg.ProjectDeleted projectId) ->
@@ -409,12 +409,16 @@ let handleProjectSettingsMsg (msg : ProjectSettings.Msg) (model : Model) =
             let cmd = UnitsList.createProjectChangeMsg project |> UnitsListMsg |> Cmd.ofMsg
             let cmd2 = AddUnit.createProjectChangeMsg project |> AddUnitMsg |> Cmd.ofMsg
             model, [ cmd; cmd2 ] |> Cmd.batch
-        | Some (ProjectSettings.RaisedMsg.UpdatedColumnSettings cs) ->
-            let cmd = AddUnit.createColumnSettingsChangeMsg cs |> AddUnitMsg |> Cmd.ofMsg
-            let cmd2 = UnitsList.createColumnChangeMsg cs |> UnitsListMsg |> Cmd.ofMsg
+        // | Some (ProjectSettings.RaisedMsg.UpdatedColumnSettings cs) ->
+        //     let cmd = AddUnit.createColumnSettingsChangeMsg cs |> AddUnitMsg |> Cmd.ofMsg
+        //     let cmd2 = UnitsList.createColumnChangeMsg cs |> UnitsListMsg |> Cmd.ofMsg
+        //     model, [ cmd; cmd2 ] |> Cmd.batch
+        | Some (ProjectSettings.RaisedMsg.UpdatedProjectColumn col) -> 
+            let cmd = AddUnit.createProjectColumnChangeMsg col |> AddUnitMsg |> Cmd.ofMsg
+            let cmd2 = UnitsList.createProjectColumnChangeMsg col |> UnitsListMsg |> Cmd.ofMsg
             model, [ cmd; cmd2 ] |> Cmd.batch
         | None -> model, Cmd.none
-        
+
 
     let projectSettingsModel = updateResponse.model
     let projectSettingsCmd = updateResponse.cmd |> Cmd.map ProjectSettingsMsg

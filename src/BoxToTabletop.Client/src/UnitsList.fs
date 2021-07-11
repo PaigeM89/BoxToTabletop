@@ -112,6 +112,7 @@ module UnitsList =
   type ExternalSourceMsg =
   | ProjectChange of proj : Project
   | ColumnSettingsChange of cs : ColumnSettings
+  | ProjectColumnChange of col : ProjectColumn
   | AddNewUnit of newUnit : Unit
   | TransferUnitTo of unitId : Guid * projectId : Guid
 
@@ -168,6 +169,7 @@ module UnitsList =
   let createAddUnitMsg unit = AddNewUnit unit |> External
   let createProjectChangeMsg project = ProjectChange project |> External
   let createColumnChangeMsg cs = ColumnSettingsChange cs |> External
+  let createProjectColumnChangeMsg col = ProjectColumnChange col |> External
 
   module View =
     open Fable.FontAwesome
@@ -624,6 +626,9 @@ module UnitsList =
     | TransferUnitTo(unitId, projectId) ->
       let cmd = TransferUnit (unitId, projectId) |> ApiCallStart |> Cmd.ofMsg
       UpdateResponse.basic model cmd
+    | ProjectColumnChange(col) ->
+      printfn "Unit list handlig project column change : %A" col
+      UpdateResponse.basic model Cmd.none
 
   let handleSavingMsg (model : Model) msg =
     match msg with

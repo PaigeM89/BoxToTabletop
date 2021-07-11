@@ -76,6 +76,7 @@ module AddUnit =
     /// Messages initiated externally and handled inside this component
     type ExternalMsg =
     | ColumnSettingsChange of cs : ColumnSettings
+    | ProjectColumnChange of col : ProjectColumn
     /// Changes the project Id and the column settings
     | ProjectChange of project : Project
 
@@ -89,6 +90,7 @@ module AddUnit =
     | ExpandAddUnit
 
     let createColumnSettingsChangeMsg cs = ColumnSettingsChange cs |> External
+    let createProjectColumnChangeMsg col = ProjectColumnChange col |> External
     let createProjectChangeMsg proj = ProjectChange proj |> External
 
     module View =
@@ -220,6 +222,9 @@ module AddUnit =
             { model with ColumnSettings = cs }, Cmd.none
         | ProjectChange project ->
             { model with ProjectId = project.Id; ColumnSettings = project.ColumnSettings }, Cmd.none
+        | ProjectColumnChange(col) ->
+            printfn "Add Unit handling project column change: %A" col
+            model, Cmd.none
 
     let update model msg =
         match msg with
